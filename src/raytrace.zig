@@ -19,6 +19,8 @@ pub const Raytrace = struct {
     scene_buffer: c.WGPUBufferId,
     render_pipeline: c.WGPURenderPipelineId,
 
+    uniforms: c.raytraceUniforms,
+
     pub fn init(
         alloc: *std.mem.Allocator,
         device: c.WGPUDeviceId,
@@ -55,7 +57,7 @@ pub const Raytrace = struct {
             device,
             &(c.WGPUBufferDescriptor){
                 .label = "raytrace uniforms",
-                .size = @sizeOf(c.fpUniforms),
+                .size = @sizeOf(c.raytraceUniforms),
                 .usage = c.WGPUBufferUsage_UNIFORM | c.WGPUBufferUsage_COPY_DST,
                 .mapped_at_creation = false,
             },
@@ -117,7 +119,7 @@ pub const Raytrace = struct {
                 .binding = 0,
                 .buffer = uniform_buffer,
                 .offset = 0,
-                .size = @sizeOf(c.fpUniforms),
+                .size = @sizeOf(c.raytraceUniforms),
 
                 .sampler = 0, // None
                 .texture_view = 0, // None
@@ -213,9 +215,24 @@ pub const Raytrace = struct {
             .tex_view = undefined,
 
             .render_pipeline = render_pipeline,
+
+            .uniforms = .{
+                .width_px = width,
+                .height_px = height,
+            },
         };
         out.resize_(width, height);
         return out;
+    }
+
+    fn update_uniforms(self: *Self) void {
+        c.wgpu_queue_write_buffer(
+            self.queue,
+            self.uniform_buffer,
+            0,
+            @ptrCast([*c]const u8, &self.uniforms),
+            @sizeOf(c.raytraceUniforms),
+        );
     }
 
     fn destroy_textures(self: *Self) void {
@@ -267,6 +284,10 @@ pub const Raytrace = struct {
                 .array_layer_count = 1,
             },
         );
+
+        self.uniforms.width_px = width;
+        self.uniforms.height_px = height;
+        self.update_uniforms();
     }
 
     pub fn resize(self: *Self, width: u32, height: u32) void {

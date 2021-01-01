@@ -7,8 +7,7 @@ pub usingnamespace @cImport({
     @cInclude("wgpu/wgpu.h");
     @cInclude("shaderc/shaderc.h");
 
-    @cInclude("extern/futureproof.h");
-    @cInclude("extern/preview.h");
+    @cInclude("extern/rayray.h");
 
     if (builtin.os.tag == .macos) {
         @cInclude("objc/message.h");

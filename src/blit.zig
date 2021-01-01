@@ -9,6 +9,7 @@ pub const Blit = struct {
     device: c.WGPUDeviceId,
 
     bind_group_layout: c.WGPUBindGroupLayoutId,
+    uniform_buffer: c.WGPUBufferId,
     tex_sampler: c.WGPUSamplerId,
     bind_group: c.WGPUBindGroupId,
 
@@ -48,6 +49,18 @@ pub const Blit = struct {
             },
         );
         defer c.wgpu_shader_module_destroy(frag_shader);
+
+        ////////////////////////////////////////////////////////////////////////
+        // Uniform buffers
+        const uniform_buffer = c.wgpu_device_create_buffer(
+            device,
+            &(c.WGPUBufferDescriptor){
+                .label = "blit uniforms",
+                .size = @sizeOf(c.blitUniforms),
+                .usage = c.WGPUBufferUsage_UNIFORM | c.WGPUBufferUsage_COPY_DST,
+                .mapped_at_creation = false,
+            },
+        );
 
         ///////////////////////////////////////////////////////////////////////
         // Texture sampler (the texture comes from the Preview struct)
@@ -94,6 +107,20 @@ pub const Blit = struct {
                 .count = undefined,
                 .has_dynamic_offset = undefined,
                 .min_buffer_binding_size = undefined,
+            },
+            (c.WGPUBindGroupLayoutEntry){ // Uniforms buffer
+                .binding = 2,
+                .visibility = c.WGPUShaderStage_FRAGMENT,
+                .ty = c.WGPUBindingType_UniformBuffer,
+
+                .has_dynamic_offset = false,
+                .min_buffer_binding_size = 0,
+
+                .multisampled = undefined,
+                .view_dimension = undefined,
+                .texture_component_type = undefined,
+                .storage_texture_format = undefined,
+                .count = undefined,
             },
         };
         const bind_group_layout = c.wgpu_device_create_bind_group_layout(
@@ -169,6 +196,7 @@ pub const Blit = struct {
             .tex_sampler = tex_sampler,
             .render_pipeline = render_pipeline,
             .bind_group_layout = bind_group_layout,
+            .uniform_buffer = uniform_buffer,
             .bind_group = undefined, // Assigned in bind_to_tex below
         };
         out.bind_to_tex_(tex_view);
@@ -196,6 +224,15 @@ pub const Blit = struct {
                 .offset = undefined,
                 .size = undefined,
             },
+            (c.WGPUBindGroupEntry){
+                .binding = 2,
+                .buffer = self.uniform_buffer,
+                .offset = 0,
+                .size = @sizeOf(c.blitUniforms),
+
+                .sampler = 0, // None
+                .texture_view = 0, // None
+            },
         };
         self.bind_group = c.wgpu_device_create_bind_group(
             self.device,
@@ -215,6 +252,7 @@ pub const Blit = struct {
 
     pub fn deinit(self: *Self) void {
         c.wgpu_sampler_destroy(self.tex_sampler);
+        c.wgpu_buffer_destroy(self.uniform_buffer);
         c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
         c.wgpu_bind_group_destroy(self.bind_group);
     }
@@ -255,5 +293,15 @@ pub const Blit = struct {
         c.wgpu_render_pass_set_bind_group(rpass, 0, self.bind_group, null, 0);
         c.wgpu_render_pass_draw(rpass, 6, 1, 0, 0);
         c.wgpu_render_pass_end_pass(rpass);
+    }
+
+    fn update_uniforms(self: *Self) void {
+        c.wgpu_queue_write_buffer(
+            self.queue,
+            self.uniform_buffer,
+            0,
+            @ptrCast([*c]const u8, &self.uniforms),
+            @sizeOf(c.blitUniforms),
+        );
     }
 };

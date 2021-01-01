@@ -1,6 +1,5 @@
 #version 450
 #pragma shader_stage(vertex)
-#extension GL_EXT_scalar_block_layout : require
 
 void main() {
     vec2 pos;

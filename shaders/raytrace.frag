@@ -36,17 +36,6 @@ vec3 rand3(vec3 seed) {
     return rand3_(rand3_(seed));
 }
 
-// Returns a coordinate uniformly distributed on a sphere
-vec3 rand3_sphere(vec3 seed) {
-    while (true) {
-        vec3 v = rand3(seed)*2 - 1;
-        if (length(v) <= 1.0) {
-            return normalize(v);
-        }
-        seed += vec3(0.1, 1, 10);
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // SHAPES
 #define ID_BACK 1
@@ -222,7 +211,19 @@ vec4 trace(vec4 start, vec3 dir) {
 #define BOUNCES 4
 vec4 bounce(vec4 pos, uint seed) {
     for (uint i=0; i < BOUNCES; ++i) {
-        vec3 dir = rand3_norm(pos, seed*BOUNCES + i);
+        vec3 n = norm(pos);
+        vec3 r = rand3_sphere(vec3(seed*BOUNCES + i, compress(pos)));
+
+        // Normalize, snapping to the normal if the point on the sphere
+        // is pathologically opposite it
+        vec3 dir = n + r;
+        float len = length(dir);
+        if (len < 1e-8) {
+            dir = n;
+        } else {
+            dir /= len;
+        }
+
         pos = trace(pos, dir);
 
         if (pos.w == ID_LIGHT) {

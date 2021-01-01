@@ -55,7 +55,7 @@ pub const Raytrace = struct {
             device,
             &(c.WGPUBufferDescriptor){
                 .label = "raytrace uniforms",
-                .size = @sizeOf(c.fpPreviewUniforms),
+                .size = @sizeOf(c.fpUniforms),
                 .usage = c.WGPUBufferUsage_UNIFORM | c.WGPUBufferUsage_COPY_DST,
                 .mapped_at_creation = false,
             },
@@ -214,7 +214,7 @@ pub const Raytrace = struct {
 
             .render_pipeline = render_pipeline,
         };
-        out.resize(width, height);
+        out.resize_(width, height);
         return out;
     }
 
@@ -233,8 +233,7 @@ pub const Raytrace = struct {
         c.wgpu_render_pipeline_destroy(self.render_pipeline);
     }
 
-    pub fn resize(self: *Self, width: u32, height: u32) void {
-        self.destroy_textures();
+    fn resize_(self: *Self, width: u32, height: u32) void {
         self.tex = c.wgpu_device_create_texture(
             self.device,
             &(c.WGPUTextureDescriptor){
@@ -268,6 +267,11 @@ pub const Raytrace = struct {
                 .array_layer_count = 1,
             },
         );
+    }
+
+    pub fn resize(self: *Self, width: u32, height: u32) void {
+        self.destroy_textures();
+        self.resize_(width, height);
     }
 
     pub fn draw(self: *Self) void {

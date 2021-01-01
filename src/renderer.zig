@@ -125,9 +125,9 @@ pub const Renderer = struct {
 
         const end_ms = std.time.milliTimestamp();
         const dt = end_ms - start_ms;
-        if (dt < 20) {
+        if (dt < 30) {
             self.rays_per_frame += 1;
-        } else if (dt > 25 and self.rays_per_frame > 1) {
+        } else if (dt > 50 and self.rays_per_frame > 1) {
             self.rays_per_frame -= 1;
         }
         std.debug.print("{} {}\n", .{ dt, self.rays_per_frame });

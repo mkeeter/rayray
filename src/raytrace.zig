@@ -20,6 +20,7 @@ pub const Raytrace = struct {
     render_pipeline: c.WGPURenderPipelineId,
 
     uniforms: c.raytraceUniforms,
+    first: bool,
 
     pub fn init(
         alloc: *std.mem.Allocator,
@@ -185,7 +186,7 @@ pub const Raytrace = struct {
                     },
                     .color_blend = (c.WGPUBlendDescriptor){
                         .src_factor = c.WGPUBlendFactor._One,
-                        .dst_factor = c.WGPUBlendFactor._Zero,
+                        .dst_factor = c.WGPUBlendFactor._One,
                         .operation = c.WGPUBlendOperation._Add,
                     },
                     .write_mask = c.WGPUColorWrite_ALL,
@@ -220,6 +221,7 @@ pub const Raytrace = struct {
                 .width_px = width,
                 .height_px = height,
             },
+            .first = true,
         };
         out.resize_(width, height);
         return out;
@@ -288,6 +290,8 @@ pub const Raytrace = struct {
         self.uniforms.width_px = width;
         self.uniforms.height_px = height;
         self.update_uniforms();
+
+        self.first = true;
     }
 
     pub fn resize(self: *Self, width: u32, height: u32) void {
@@ -301,12 +305,18 @@ pub const Raytrace = struct {
             &(c.WGPUCommandEncoderDescriptor){ .label = "raytrace encoder" },
         );
 
+        const load_op = if (self.first)
+            c.WGPULoadOp._Clear
+        else
+            c.WGPULoadOp._Load;
+        self.first = false;
+
         const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
             (c.WGPURenderPassColorAttachmentDescriptor){
                 .attachment = self.tex_view,
                 .resolve_target = 0,
                 .channel = (c.WGPUPassChannel_Color){
-                    .load_op = c.WGPULoadOp._Clear,
+                    .load_op = load_op,
                     .store_op = c.WGPUStoreOp._Store,
                     .clear_value = (c.WGPUColor){
                         .r = 0.0,

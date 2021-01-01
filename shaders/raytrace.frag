@@ -12,5 +12,5 @@ layout(set=0, binding=1) buffer Scene {
 };
 
 void main()  {
-    fragColor = vec4(1, 0, 0, 1);
+    fragColor = vec4(0.01, 0, 0, 1);
 }

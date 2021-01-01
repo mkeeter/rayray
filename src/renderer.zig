@@ -20,6 +20,7 @@ pub const Renderer = struct {
 
     raytrace: Raytrace,
     blit: Blit,
+    rays_per_frame: usize,
 
     pub fn init(alloc: *std.mem.Allocator, window: Window) !*Self {
         // Extract the WGPU Surface from the platform-specific window
@@ -85,6 +86,7 @@ pub const Renderer = struct {
 
             .raytrace = rt,
             .blit = blit,
+            .rays_per_frame = 1,
         };
         window.set_callbacks(
             size_cb,
@@ -96,10 +98,14 @@ pub const Renderer = struct {
     }
 
     pub fn redraw(self: *Self) void {
-        // Cast another set of rays, one per pixel
-        self.raytrace.draw();
+        const start_ms = std.time.milliTimestamp();
 
-        self.blit.increment_sample_count();
+        // Cast another set of rays, one per pixel
+        var i: usize = 0;
+        while (i < self.rays_per_frame) : (i += 1) {
+            self.raytrace.draw();
+            self.blit.increment_sample_count();
+        }
 
         // Begin the main render operation
         const next_texture = c.wgpu_swap_chain_get_next_texture(self.swap_chain);
@@ -116,6 +122,15 @@ pub const Renderer = struct {
         const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);
         c.wgpu_queue_submit(self.queue, &cmd_buf, 1);
         c.wgpu_swap_chain_present(self.swap_chain);
+
+        const end_ms = std.time.milliTimestamp();
+        const dt = end_ms - start_ms;
+        if (dt < 20) {
+            self.rays_per_frame += 1;
+        } else if (dt > 25 and self.rays_per_frame > 1) {
+            self.rays_per_frame -= 1;
+        }
+        std.debug.print("{} {}\n", .{ dt, self.rays_per_frame });
     }
 
     pub fn run(self: *Self) !void {

@@ -36,6 +36,17 @@ vec3 rand3(vec3 seed) {
     return rand3_(rand3_(seed));
 }
 
+// Returns a coordinate uniformly distributed on a sphere
+vec3 rand3_sphere(vec3 seed) {
+    while (true) {
+        vec3 v = rand3(seed)*2 - 1;
+        if (length(v) <= 1.0) {
+            return normalize(v);
+        }
+        seed += vec3(0.1, 1, 10);
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // SHAPES
 #define ID_BACK 1
@@ -156,18 +167,6 @@ vec2 compress(vec4 pos) {
         default: return vec2(0);
     }
 }
-
-vec3 rand3_norm(vec4 pos, uint seed) {
-    // Pick a random direction uniformly on the sphere,
-    // then tweak it so that the normal is > 0
-    vec3 dir = rand3_sphere(vec3(seed, compress(pos)));
-    if (dot(dir, norm(pos)) < 0) {
-        return -dir;
-    } else {
-        return dir;
-    }
-}
-
 
 vec3 color(vec4 pos) {
     switch (int(pos.w)) {

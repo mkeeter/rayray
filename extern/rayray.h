@@ -20,6 +20,11 @@ typedef struct {
 } vec4;
 #endif
 
+#define SHAPE_NONE 0
+#define SHAPE_SPHERE 1
+#define SHAPE_INFINITE_PLANE 2
+#define SHAPE_FINITE_PLANE 3
+
 ////////////////////////////////////////////////////////////////////////////////
 
 struct raytraceUniforms {

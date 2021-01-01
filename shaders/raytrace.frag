@@ -8,7 +8,7 @@ layout(set=0, binding=0, std430) uniform Uniforms {
     raytraceUniforms u;
 };
 layout(set=0, binding=1) buffer Scene {
-    uint[] scene_data;
+    vec4[] scene_data;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -24,43 +24,39 @@ float rand(vec2 co) {
 }
 
 // Single-round randomization, which will show patterns in many cases
-vec3 rand3_(vec3 seed) {
-    float a = rand(vec2(seed.z, rand(seed.xy)));
-    float b = rand(vec2(seed.y, rand(seed.xz)));
-    float c = rand(vec2(seed.x, rand(seed.yz)));
+vec3 rand3_a(vec3 pos, uint seed) {
+    float a = rand(vec2(seed, rand(pos.xy)));
+    float b = rand(vec2(seed, rand(pos.xz)));
+    float c = rand(vec2(seed, rand(pos.yz)));
     return vec3(a, b, c);
 }
 
+// Single-round randomization, which will show patterns in many cases
+vec3 rand3_b(vec3 pos, uint seed) {
+    float a = rand(vec2(rand(pos.xy), seed));
+    float b = rand(vec2(rand(pos.xz), seed));
+    float c = rand(vec2(rand(pos.yz), seed));
+    return vec3(b, c, a);
+}
+
 // Two-round randomization, which is closer to uniform
-vec3 rand3(vec3 seed) {
-    return rand3_(rand3_(seed));
+vec3 rand3(vec3 pos, uint seed) {
+    return rand3_a(rand3_b(pos, seed), seed);
 }
 
 // Returns a coordinate uniformly distributed on a sphere
-vec3 rand3_sphere(vec3 seed) {
+vec3 rand3_sphere(vec3 pos, uint seed) {
     while (true) {
-        vec3 v = rand3(seed)*2 - 1;
+        vec3 v = rand3(pos, seed)*2 - 1;
         if (length(v) <= 1.0) {
             return normalize(v);
         }
-        seed += vec3(0.1, 1, 10);
+        seed++;
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// SHAPES
-#define ID_BACK 1
-#define ID_TOP 2
-#define ID_LEFT 3
-#define ID_RIGHT 4
-#define ID_BOTTOM 5
-#define ID_LIGHT 6
-#define ID_SPHERE 7
-#define ID_FRONT 8
-
-#define SPHERE_CENTER vec3(-0.4, -0.5, -0.5)
-
-vec4 plane(vec3 norm, float off, vec3 start, vec3 dir) {
+vec4 plane(vec3 start, vec3 dir, vec3 norm, float off) {
     // dot(norm, pos) == off
     // dot(norm, start + n*dir) == off
     // dot(norm, start) + dot(norm, n*dir) == off
@@ -73,114 +69,34 @@ vec4 plane(vec3 norm, float off, vec3 start, vec3 dir) {
     }
 }
 
-vec4 rear(vec3 start, vec3 dir) {
-    vec4 p = plane(vec3(0, 0, 1), -1, start, dir);
-    return (p.w != 0 && abs(p.x) < 1 && abs(p.y) < 1)
-        ? vec4(p.xyz, ID_BACK)
-        : vec4(0);
-}
-vec4 front(vec3 start, vec3 dir) {
-    vec4 p = plane(vec3(0, 0, -1), -1, start, dir);
-    return (p.w != 0 && abs(p.x) < 1 && abs(p.y) < 1)
-        ? vec4(p.xyz, ID_FRONT)
-        : vec4(0);
-}
-
-vec4 top(vec3 start, vec3 dir) {
-    vec4 p = plane(vec3(0, 1, 0), 1, start, dir);
-    return (p.w != 0 && abs(p.x) < 1 && abs(p.z) < 1)
-        ? vec4(p.xyz, ID_TOP)
-        : vec4(0);
-}
-
-vec4 light(vec3 start, vec3 dir) {
-    vec4 p = plane(vec3(0, 1, 0), 1, start, dir);
-    return (p.w != 0 && abs(p.x) < 0.3 && abs(p.z) < 0.3)
-        ? vec4(p.xyz, ID_LIGHT)
-        : vec4(0);
-}
-
-vec4 bottom(vec3 start, vec3 dir) {
-    vec4 p = plane(vec3(0, -1, 0), 1, start, dir);
-    return (p.w != 0 && abs(p.x) < 1 && abs(p.z) < 1)
-        ? vec4(p.xyz, ID_BOTTOM)
-        : vec4(0);
-}
-
-vec4 left(vec3 start, vec3 dir) {
-    vec4 p = plane(vec3(1, 0, 0), -1, start, dir);
-    return (p.w != 0 && abs(p.y) < 1 && abs(p.z) < 1)
-        ? vec4(p.xyz, ID_LEFT)
-        : vec4(0);
-}
-
-vec4 right(vec3 start, vec3 dir) {
-    vec4 p = plane(vec3(-1, 0, 0), -1, start, dir);
-    return (p.w != 0 && abs(p.y) < 1 && abs(p.z) < 1)
-        ? vec4(p.xyz, ID_RIGHT)
-        : vec4(0);
-}
-
-vec4 sphere(vec3 start, vec3 dir) {
-    vec3 center = SPHERE_CENTER;
-    float r = 0.5;
+vec4 sphere(vec3 start, vec3 dir, vec3 center, float r) {
     vec3 delta = center - start;
     float d = dot(delta, dir);
     vec3 nearest = start + dir * d;
     float min_distance = length(center - nearest);
     if (min_distance < r) {
         float q = sqrt(min_distance*min_distance + r*r);
-        return vec4(nearest - q*dir, ID_SPHERE);
+        return vec4(nearest - q*dir, 1);
     } else {
         return vec4(0);
     }
 }
 
 vec3 norm(vec4 pos) {
-    switch (int(pos.w)) {
-        case ID_TOP: return vec3(0, -1, 0);
-        case ID_BACK: return vec3(0, 0, 1);
-        case ID_LEFT: return vec3(1, 0, 0);
-        case ID_RIGHT: return vec3(-1, 0, 0);
-        case ID_LIGHT: return vec3(0, -1, 0);
-        case ID_BOTTOM: return vec3(0, 1, 0);
-        case ID_SPHERE: return normalize(pos.xyz - SPHERE_CENTER);
-        case ID_FRONT: return vec3(0, 0, -1);
-        default: return vec3(0);
-    }
-}
-
-// Returns the two coordinates which matter, for use in randomization
-vec2 compress(vec4 pos) {
-    switch (int(pos.w)) {
-        case ID_TOP:    // fallthrough
-        case ID_LIGHT:  // fallthrough
-        case ID_BOTTOM: return pos.xz;
-
-        case ID_FRONT:
-        case ID_BACK: return pos.xy;
-
-        case ID_LEFT: // fallthrough
-        case ID_RIGHT: return pos.yz;
-        case ID_SPHERE: return pos.yz;
-
-        default: return vec2(0);
-    }
-}
-
-vec3 color(vec4 pos) {
-    switch (int(pos.w)) {
-        case ID_TOP:    // fallthrough
-        case ID_LIGHT:  // fallthrough
-        case ID_BOTTOM: // fallthrough
-        case ID_FRONT:  // fallthrough
-        case ID_BACK: return vec3(1);
-
-        case ID_LEFT: return vec3(1, 0.3, 0);
-        case ID_RIGHT: return vec3(0.3, 1, 0);
-        case ID_SPHERE: return vec3(0.3, 0.3, 1);
-
-        default: return vec3(1);
+    vec4 shape = scene_data[uint(pos.w)];
+    uint offset = uint(shape.y);
+    switch (uint(shape.x)) {
+        case SHAPE_SPHERE: {
+            vec4 d = scene_data[offset];
+            return normalize(pos.xyz - d.xyz);
+        }
+        case SHAPE_INFINITE_PLANE: // fallthrough
+        case SHAPE_FINITE_PLANE: {
+            vec4 d = scene_data[offset];
+            return d.xyz;
+        }
+        default: // unimplemented
+            return vec3(0);
     }
 }
 
@@ -189,29 +105,55 @@ vec3 color(vec4 pos) {
 //  Raytraces to the next object in the scene,
 //  returning a vec4 of [end, id]
 vec4 trace(vec4 start, vec3 dir) {
-    vec4 t;
-#define SHAPE(fn) \
-        t = fn(start.xyz, dir); \
-        if (t.w != 0 && t.w != start.w) { \
-            return t; \
-        }
+    float closest = 1e8;
+    const uint num_shapes = uint(scene_data[0].x);
 
-    SHAPE(sphere)
-    SHAPE(light)
-    SHAPE(rear)
-    SHAPE(top)
-    SHAPE(left)
-    SHAPE(right)
-    SHAPE(bottom)
-    SHAPE(front)
+    // Avoid colliding with yourself
+    uint prev_shape = uint(start.w);
+
+    for (uint i=1; i <= num_shapes; i += 1) {
+        if (i == prev_shape) {
+            continue;
+        }
+        vec4 shape = scene_data[i];
+        uint offset = uint(shape.y);
+        switch ((uint(shape.x))) {
+            case SHAPE_SPHERE: {
+                vec4 d = scene_data[offset];
+                vec4 v = sphere(start.xyz, dir, d.xyz, d.w);
+                if (v.w != 0) {
+                    return vec4(v.xyz, i);
+                }
+                break;
+            }
+            case SHAPE_INFINITE_PLANE: {
+                vec4 d = scene_data[offset];
+                vec4 v = plane(start.xyz, dir, d.xyz, d.w);
+                if (v.w != 0) {
+                    return vec4(v.xyz, i);
+                }
+                break;
+            }
+            default: // unimplemented shape
+                continue;
+        }
+    }
     return vec4(0);
 }
 
 #define BOUNCES 4
 vec4 bounce(vec4 pos, uint seed) {
     for (uint i=0; i < BOUNCES; ++i) {
+        // We reached a light
+        if (pos.w == 1) {
+            return vec4(1);
+        // We escaped the world
+        } else if (pos.w == 0) {
+            return vec4(0);
+        }
+
         vec3 n = norm(pos);
-        vec3 r = rand3_sphere(vec3(seed*BOUNCES + i, compress(pos)));
+        vec3 r = rand3_sphere(pos.xyz, seed*BOUNCES + i);
 
         // Normalize, snapping to the normal if the point on the sphere
         // is pathologically opposite it
@@ -224,10 +166,6 @@ vec4 bounce(vec4 pos, uint seed) {
         }
 
         pos = trace(pos, dir);
-
-        if (pos.w == ID_LIGHT) {
-            return vec4(1);
-        }
     }
     return vec4(0);
 }
@@ -241,9 +179,5 @@ void main() {
     vec3 dir = normalize(vec3(xy/3, -1));
 
     vec4 pos = trace(vec4(start, 0), dir);
-    if (pos.w == ID_LIGHT) {
-        fragColor = vec4(1);
-    } else {
-        fragColor = bounce(pos, u.frame);
-    }
+    fragColor = bounce(pos, u.frame);
 }

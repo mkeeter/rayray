@@ -3,6 +3,10 @@ const std = @import("std");
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
 
+const Scene = @import("scene.zig").Scene;
+
+const MAX_SHAPES: usize = 512;
+
 pub const Raytrace = struct {
     const Self = @This();
 
@@ -30,6 +34,9 @@ pub const Raytrace = struct {
         var arena = std.heap.ArenaAllocator.init(alloc);
         const tmp_alloc: *std.mem.Allocator = &arena.allocator;
         defer arena.deinit();
+
+        // This is the only available queue right now
+        const queue = c.wgpu_device_get_default_queue(device);
 
         // Build the shaders using shaderc
         const vert_spv = try shaderc.build_shader_from_file(tmp_alloc, "shaders/raytrace.vert");
@@ -66,10 +73,24 @@ pub const Raytrace = struct {
             device,
             &(c.WGPUBufferDescriptor){
                 .label = "raytrace scene",
-                .size = @sizeOf(u32) * 512 * 512,
+                .size = @sizeOf(c.vec4) * MAX_SHAPES,
                 .usage = c.WGPUBufferUsage_STORAGE | c.WGPUBufferUsage_COPY_DST,
                 .mapped_at_creation = false,
             },
+        );
+
+        // Upload a flattened scene representation to the scene buffer
+        var scene = try Scene.new_simple_scene(alloc);
+        defer scene.deinit();
+
+        const encoded = try scene.encode();
+        defer alloc.free(encoded);
+        c.wgpu_queue_write_buffer(
+            queue,
+            scene_buffer,
+            0,
+            @ptrCast([*c]const u8, encoded.ptr),
+            encoded.len * @sizeOf(c.vec4),
         );
 
         ////////////////////////////////////////////////////////////////////////////
@@ -128,7 +149,7 @@ pub const Raytrace = struct {
                 .binding = 1,
                 .buffer = scene_buffer,
                 .offset = 0,
-                .size = @sizeOf(u32) * 512 * 512,
+                .size = @sizeOf(c.vec4) * MAX_SHAPES,
 
                 .sampler = 0, // None
                 .texture_view = 0, // None
@@ -203,9 +224,10 @@ pub const Raytrace = struct {
             },
         );
 
+        ////////////////////////////////////////////////////////////////////////
         var out = Self{
             .device = device,
-            .queue = c.wgpu_device_get_default_queue(device),
+            .queue = queue,
 
             .bind_group = bind_group,
             .uniform_buffer = uniform_buffer,

@@ -31,7 +31,8 @@ pub const Scene = struct {
 
     pub fn new_simple_scene(alloc: *std.mem.Allocator) !Self {
         var shapes = std.ArrayList(Shape).init(alloc);
-        try shapes.append(try Shape.new_sphere(alloc, .{ .x = 0, .y = 0, .z = 0 }, 1));
+        try shapes.append(try Shape.new_sphere(alloc, .{ .x = 0, .y = 0, .z = 0 }, 0.1));
+        try shapes.append(try Shape.new_sphere(alloc, .{ .x = 0.5, .y = 0, .z = 0 }, 0.5));
 
         return Scene{
             .alloc = alloc,
@@ -44,5 +45,39 @@ pub const Scene = struct {
             self.alloc.free(s.data);
         }
         self.shapes.deinit();
+    }
+
+    pub fn encode(self: *Self) ![]c.vec4 {
+        var num_data: usize = 0;
+        for (self.shapes.items) |s| {
+            num_data += s.data.len;
+        }
+        var out = try self.alloc.alloc(c.vec4, num_data + self.shapes.items.len + 1);
+
+        // Store the list length as the first element
+        var i: usize = 0;
+        out[i] = .{
+            .x = @intToFloat(f32, self.shapes.items.len),
+            .y = 0,
+            .z = 0,
+            .w = 0,
+        };
+        i += 1;
+
+        // Skip the first item in the array
+        var j: usize = self.shapes.items.len + 1;
+        for (self.shapes.items) |s| {
+            out[i] = .{
+                .x = @intToFloat(f32, s.kind), // kind
+                .y = @intToFloat(f32, j), // data offset
+                .z = 0, // unused for now
+                .w = 0,
+            };
+            std.mem.copy(c.vec4, out[j..], s.data);
+
+            i += 1;
+            j += s.data.len;
+        }
+        return out;
     }
 };

@@ -25,6 +25,7 @@ typedef struct {
 struct raytraceUniforms {
     uint32_t width_px;
     uint32_t height_px;
+    uint32_t frame;
 };
 
 struct blitUniforms {

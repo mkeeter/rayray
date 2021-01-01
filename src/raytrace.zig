@@ -20,7 +20,6 @@ pub const Raytrace = struct {
     render_pipeline: c.WGPURenderPipelineId,
 
     uniforms: c.raytraceUniforms,
-    first: bool,
 
     pub fn init(
         alloc: *std.mem.Allocator,
@@ -220,8 +219,8 @@ pub const Raytrace = struct {
             .uniforms = .{
                 .width_px = width,
                 .height_px = height,
+                .frame = 0,
             },
-            .first = true,
         };
         out.resize_(width, height);
         return out;
@@ -289,9 +288,8 @@ pub const Raytrace = struct {
 
         self.uniforms.width_px = width;
         self.uniforms.height_px = height;
-        self.update_uniforms();
-
-        self.first = true;
+        self.uniforms.frame = 0;
+        // These will be updated in the next call to draw()
     }
 
     pub fn resize(self: *Self, width: u32, height: u32) void {
@@ -300,16 +298,18 @@ pub const Raytrace = struct {
     }
 
     pub fn draw(self: *Self) void {
+        // Update the frame on the GPU (used as a seed)
+        self.update_uniforms();
+
         const cmd_encoder = c.wgpu_device_create_command_encoder(
             self.device,
             &(c.WGPUCommandEncoderDescriptor){ .label = "raytrace encoder" },
         );
 
-        const load_op = if (self.first)
+        const load_op = if (self.uniforms.frame == 0)
             c.WGPULoadOp._Clear
         else
             c.WGPULoadOp._Load;
-        self.first = false;
 
         const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
             (c.WGPURenderPassColorAttachmentDescriptor){
@@ -345,5 +345,7 @@ pub const Raytrace = struct {
 
         const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);
         c.wgpu_queue_submit(self.queue, &cmd_buf, 1);
+
+        self.uniforms.frame += 1;
     }
 };

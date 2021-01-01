@@ -73,7 +73,7 @@ pub const Renderer = struct {
         const height = @intCast(u32, height_);
 
         const rt = try Raytrace.init(alloc, device, width, height);
-        const blit = try Blit.init(alloc, device, rt.tex);
+        const blit = try Blit.init(alloc, device, rt.tex_view);
 
         const out = try alloc.create(Self);
         out.* = .{
@@ -136,7 +136,7 @@ pub const Renderer = struct {
 
         self.resize_swap_chain(width, height);
         self.raytrace.resize(width, height);
-        self.blit.bind_to_tex(self.raytrace.tex);
+        self.blit.bind_to_tex(self.raytrace.tex_view);
     }
 
     fn resize_swap_chain(self: *Self, width: u32, height: u32) void {

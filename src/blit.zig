@@ -17,7 +17,7 @@ pub const Blit = struct {
     pub fn init(
         alloc: *std.mem.Allocator,
         device: c.WGPUDeviceId,
-        tex: c.WGPUTextureId,
+        tex_view: c.WGPUTextureViewId,
     ) !Blit {
         var arena = std.heap.ArenaAllocator.init(alloc);
         const tmp_alloc: *std.mem.Allocator = &arena.allocator;
@@ -171,7 +171,7 @@ pub const Blit = struct {
             .bind_group_layout = bind_group_layout,
             .bind_group = undefined, // Assigned in bind_to_tex below
         };
-        out.bind_to_tex_(tex);
+        out.bind_to_tex_(tex_view);
         return out;
     }
 

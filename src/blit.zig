@@ -7,6 +7,7 @@ pub const Blit = struct {
     const Self = @This();
 
     device: c.WGPUDeviceId,
+    queue: c.WGPUQueueId,
 
     bind_group_layout: c.WGPUBindGroupLayoutId,
     uniform_buffer: c.WGPUBufferId,
@@ -14,6 +15,7 @@ pub const Blit = struct {
     bind_group: c.WGPUBindGroupId,
 
     render_pipeline: c.WGPURenderPipelineId,
+    uniforms: c.blitUniforms,
 
     pub fn init(
         alloc: *std.mem.Allocator,
@@ -193,11 +195,13 @@ pub const Blit = struct {
 
         var out = Self{
             .device = device,
+            .queue = c.wgpu_device_get_default_queue(device),
             .tex_sampler = tex_sampler,
             .render_pipeline = render_pipeline,
             .bind_group_layout = bind_group_layout,
             .uniform_buffer = uniform_buffer,
             .bind_group = undefined, // Assigned in bind_to_tex below
+            .uniforms = .{ .samples = 0 },
         };
         out.bind_to_tex_(tex_view);
         return out;
@@ -243,6 +247,7 @@ pub const Blit = struct {
                 .entries_length = bind_group_entries.len,
             },
         );
+        self.uniforms.samples = 0;
     }
 
     pub fn bind_to_tex(self: *Self, tex_view: c.WGPUTextureViewId) void {
@@ -262,6 +267,9 @@ pub const Blit = struct {
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) void {
+        // Update the frame on the GPU (used as a seed)
+        self.update_uniforms();
+
         const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
             (c.WGPURenderPassColorAttachmentDescriptor){
                 .attachment = next_texture.view_id,
@@ -293,6 +301,10 @@ pub const Blit = struct {
         c.wgpu_render_pass_set_bind_group(rpass, 0, self.bind_group, null, 0);
         c.wgpu_render_pass_draw(rpass, 6, 1, 0, 0);
         c.wgpu_render_pass_end_pass(rpass);
+    }
+
+    pub fn increment_sample_count(self: *Self) void {
+        self.uniforms.samples += 1;
     }
 
     fn update_uniforms(self: *Self) void {

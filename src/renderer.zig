@@ -99,6 +99,8 @@ pub const Renderer = struct {
         // Cast another set of rays, one per pixel
         self.raytrace.draw();
 
+        self.blit.increment_sample_count();
+
         // Begin the main render operation
         const next_texture = c.wgpu_swap_chain_get_next_texture(self.swap_chain);
         if (next_texture.view_id == 0) {
@@ -119,7 +121,7 @@ pub const Renderer = struct {
     pub fn run(self: *Self) !void {
         while (!self.window.should_close()) {
             self.redraw();
-            c.glfwWaitEvents();
+            c.glfwPollEvents();
         }
     }
 

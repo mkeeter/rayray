@@ -13,5 +13,6 @@ layout(set=0, binding=2, std430) uniform Uniforms {
 layout(location=0) out vec4 out_color;
 
 void main() {
-    out_color = texture(sampler2D(raytrace_tex, raytrace_sampler), v_tex_coords);
+    float scale = 1.0 / u.samples;
+    out_color = sqrt(scale * texture(sampler2D(raytrace_tex, raytrace_sampler), v_tex_coords));
 }

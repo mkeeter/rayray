@@ -13,7 +13,7 @@ pub fn main() anyerror!void {
         std.debug.panic("Could not initialize glfw", .{});
     }
 
-    var window = try Window.init(900, 600, "wgpu-pt");
+    var window = try Window.init(600, 600, "wgpu-pt");
     var renderer = try Renderer.init(alloc, window);
     defer alloc.destroy(renderer);
     defer renderer.deinit();

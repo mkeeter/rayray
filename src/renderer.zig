@@ -22,7 +22,7 @@ pub const Renderer = struct {
     blit: Blit,
     rays_per_frame: usize,
 
-    dt: [5]i64,
+    dt: [7]i64,
     dt_index: usize,
 
     pub fn init(alloc: *std.mem.Allocator, window: Window) !*Self {

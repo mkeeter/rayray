@@ -181,7 +181,6 @@ pub const Renderer = struct {
         self.uniforms.width_px = width;
         self.uniforms.height_px = height;
         self.uniforms.samples = 0;
-        self.uniforms.samples_per_frame = 1;
 
         self.resize_swap_chain(width, height);
         self.raytrace.resize(width, height);

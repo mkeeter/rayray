@@ -299,7 +299,7 @@ pub const Blit = struct {
 
         c.wgpu_render_pass_set_pipeline(rpass, self.render_pipeline);
         c.wgpu_render_pass_set_bind_group(rpass, 0, self.bind_group, null, 0);
-        c.wgpu_render_pass_draw(rpass, 6, 1, 0, 0);
+        c.wgpu_render_pass_draw(rpass, 3, 1, 0, 0);
         c.wgpu_render_pass_end_pass(rpass);
     }
 

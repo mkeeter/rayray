@@ -173,8 +173,7 @@ vec4 bounce(vec4 pos, vec3 dir, uint seed) {
         } else {
             dir /= len;
         }
-
-        pos = trace(pos, dir);
+        //return vec4(dir, 1);
     }
     return vec4(0);
 }
@@ -182,7 +181,10 @@ vec4 bounce(vec4 pos, vec3 dir, uint seed) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void main() {
-    vec2 xy = gl_FragCoord.xy / vec2(u.width_px, u.height_px)*2 - 1;
+    float dx = 0;//rand(vec2(gl_FragCoord.x, u.frame));
+    float dy = 0;//rand(vec2(gl_FragCoord.y, u.frame));
+
+    vec2 xy = (gl_FragCoord.xy + vec2(dx, dy)) / vec2(u.width_px, u.height_px)*2 - 1;
 
     vec3 start = vec3(xy, 1);
 #if USE_PERSPECTIVE

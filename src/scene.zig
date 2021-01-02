@@ -146,8 +146,6 @@ pub const Scene = struct {
         const metal = try scene.new_material(try Material.new_metal(alloc, 1, 1, 1, 0.1));
         const light = try scene.new_material(try Material.new_light(alloc, 4, 4, 4));
 
-        const d = 100;
-        const r = d - 1;
         // Light
         try scene.shapes.append(try Shape.new_sphere(
             alloc,

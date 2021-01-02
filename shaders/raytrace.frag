@@ -72,6 +72,9 @@ vec4 hit_plane(vec3 start, vec3 dir, vec3 norm, float off) {
 vec4 hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     vec3 delta = center - start;
     float d = dot(delta, dir);
+    if (d < 0) {
+        return vec4(0);
+    }
     vec3 nearest = start + dir * d;
     float min_distance = length(center - nearest);
     if (min_distance < r) {
@@ -145,8 +148,11 @@ vec4 trace(vec4 start, vec3 dir) {
 }
 
 #define BOUNCES 2
-vec4 bounce(vec4 pos, uint seed) {
+vec4 bounce(vec4 pos, vec3 dir, uint seed) {
     for (uint i=0; i < BOUNCES; ++i) {
+        // Walk to the next object in the scene
+        pos = trace(pos, dir);
+
         // We reached a light
         if (pos.w == 1) {
             return vec4(1);
@@ -160,7 +166,7 @@ vec4 bounce(vec4 pos, uint seed) {
 
         // Normalize, snapping to the normal if the point on the sphere
         // is pathologically opposite it
-        vec3 dir = n + r;
+        dir = n + r;
         float len = length(dir);
         if (len < 1e-8) {
             dir = n;
@@ -185,6 +191,5 @@ void main() {
     vec3 dir = vec3(0, 0, -1);
 #endif
 
-    vec4 pos = trace(vec4(start, 0), dir);
-    fragColor = bounce(pos, u.frame);
+    fragColor = bounce(vec4(start, 0), dir, u.frame);
 }

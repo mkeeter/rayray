@@ -26,28 +26,28 @@ uint32_t hash(uint key) {
     return h;
 }
 
-// Roughly based on
-// https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
-float to_float(uint m) {
+float rand(inout uint seed) {
+    seed = hash(seed);
+
+    // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+    uint m = seed;
+
     const uint ieeeMantissa = 0x007FFFFFu; // binary32 mantissa bitmask
     const uint ieeeOne      = 0x3F800000u; // 1.0 in IEEE binary32
 
     m &= ieeeMantissa;                     // Keep only mantissa bits (fractional part)
     m |= ieeeOne;                          // Add fractional part to 1.0
 
-    float  f = uintBitsToFloat( m );       // Range [1:2]
+    float  f = uintBitsToFloat(m);          // Range [1:2]
     return f - 1.0;                        // Range [0:1]
 }
 
-vec3 rand3(uint seed) {
-    uint a = hash(seed);
-    uint b = hash(a);
-    uint c = hash(b);
-    return vec3(to_float(a), to_float(b), to_float(c));
+vec3 rand3(inout uint seed) {
+    return vec3(rand(seed), rand(seed), rand(seed));
 }
 
 // Returns a coordinate uniformly distributed on a sphere
-vec3 rand3_sphere(uint seed) {
+vec3 rand3_sphere(inout uint seed) {
     while (true) {
         vec3 v = rand3(seed)*2 - 1;
         if (length(v) <= 1.0 && length(v) > 1e-8) {
@@ -150,7 +150,7 @@ vec4 trace(vec4 start, vec3 dir) {
 }
 
 #define BOUNCES 2
-vec4 bounce(vec4 pos, vec3 dir, uint seed) {
+vec4 bounce(vec4 pos, vec3 dir, inout uint seed) {
     for (uint i=0; i < BOUNCES; ++i) {
         // Walk to the next object in the scene
         pos = trace(pos, dir);
@@ -164,7 +164,7 @@ vec4 bounce(vec4 pos, vec3 dir, uint seed) {
         }
 
         vec3 n = norm(pos);
-        vec3 r = rand3_sphere(seed*BOUNCES + i);
+        vec3 r = rand3_sphere(seed);
 
         // Normalize, snapping to the normal if the point on the sphere
         // is pathologically opposite it
@@ -183,11 +183,12 @@ vec4 bounce(vec4 pos, vec3 dir, uint seed) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void main() {
+    // Set up our random seed based on the frame and pixel position
+    uint seed = hash(hash(hash(u.frame) ^ floatBitsToUint(gl_FragCoord.x))
+                                        ^ floatBitsToUint(gl_FragCoord.y));
     // Add anti-aliasing by jittering within the pixel
-    uint seed = hash(u.frame) ^ hash(floatBitsToUint(gl_FragCoord.x)) ^ hash(floatBitsToUint(gl_FragCoord.y));
-    float dx = to_float(seed);
-    seed = hash(seed);
-    float dy = to_float(seed);
+    float dx = rand(seed);
+    float dy = rand(seed);
 
     vec2 xy = (gl_FragCoord.xy + vec2(dx, dy)) / vec2(u.width_px, u.height_px)*2 - 1;
 

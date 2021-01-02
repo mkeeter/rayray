@@ -207,6 +207,7 @@ void main() {
     vec2 xy = (gl_FragCoord.xy + vec2(dx, dy)) / vec2(u.width_px, u.height_px)*2 - 1;
 
     vec4 start = vec4(xy, 1, 0);
+#define USE_PERSPECTIVE 1
 #if USE_PERSPECTIVE
     vec3 dir = normalize(vec3(xy/3, -1));
 #else

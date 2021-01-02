@@ -79,7 +79,6 @@ pub const Scene = struct {
         const red = try scene.new_material(try Material.new_diffuse(alloc, 1, 0.2, 0.2));
         const light = try scene.new_material(try Material.new_light(alloc, 1, 1, 1));
 
-        var shapes = std.ArrayList(Shape).init(alloc);
         try scene.shapes.append(try Shape.new_sphere(
             alloc,
             .{ .x = 0, .y = 0, .z = 0 },
@@ -97,6 +96,68 @@ pub const Scene = struct {
             .{ .x = -0.5, .y = 0.3, .z = 0 },
             0.3,
             red,
+        ));
+
+        return scene;
+    }
+
+    pub fn new_cornell_box(alloc: *std.mem.Allocator) !Self {
+        var scene = new(alloc);
+        const white = try scene.new_material(try Material.new_diffuse(alloc, 1, 1, 1));
+        const red = try scene.new_material(try Material.new_diffuse(alloc, 1, 0.1, 0.1));
+        const green = try scene.new_material(try Material.new_diffuse(alloc, 0.1, 1, 0.1));
+        const light = try scene.new_material(try Material.new_light(alloc, 1, 1, 1));
+
+        const d = 100;
+        const r = d - 1;
+        // Light
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 0, .y = 1.2, .z = 0 },
+            0.5,
+            light,
+        ));
+        // Back wall
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 0, .y = 0, .z = -d },
+            r,
+            white,
+        ));
+        // Left wall
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = -d, .y = 0, .z = 0 },
+            r,
+            red,
+        ));
+        // Right wall
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = d, .y = 0, .z = 0 },
+            r,
+            green,
+        ));
+        // Top wall
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 0, .y = d, .z = 0 },
+            r,
+            white,
+        ));
+        // Bottom wall
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 0, .y = -d, .z = 0 },
+            r,
+            white,
+        ));
+        // Bottom wall
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 0, .y = 0, .z = d },
+            r,
+            white,
         ));
 
         return scene;

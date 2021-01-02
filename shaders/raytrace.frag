@@ -75,7 +75,7 @@ vec4 hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     vec3 nearest = start + dir * d;
     float min_distance = length(center - nearest);
     if (min_distance < r) {
-        float q = sqrt(min_distance*min_distance + r*r);
+        float q = sqrt(r*r - min_distance*min_distance);
         return vec4(nearest - q*dir, 1);
     } else {
         return vec4(0);
@@ -144,7 +144,7 @@ vec4 trace(vec4 start, vec3 dir) {
     return best_hit;
 }
 
-#define BOUNCES 4
+#define BOUNCES 2
 vec4 bounce(vec4 pos, uint seed) {
     for (uint i=0; i < BOUNCES; ++i) {
         // We reached a light
@@ -179,7 +179,11 @@ void main() {
     vec2 xy = gl_FragCoord.xy / vec2(u.width_px, u.height_px)*2 - 1;
 
     vec3 start = vec3(xy, 1);
+#if USE_PERSPECTIVE
     vec3 dir = normalize(vec3(xy/3, -1));
+#else
+    vec3 dir = vec3(0, 0, -1);
+#endif
 
     vec4 pos = trace(vec4(start, 0), dir);
     fragColor = bounce(pos, u.frame);

@@ -31,8 +31,8 @@ pub const Scene = struct {
 
     pub fn new_simple_scene(alloc: *std.mem.Allocator) !Self {
         var shapes = std.ArrayList(Shape).init(alloc);
-        try shapes.append(try Shape.new_sphere(alloc, .{ .x = -1, .y = 0, .z = 0 }, 0.5));
-        try shapes.append(try Shape.new_sphere(alloc, .{ .x = 0.5, .y = 0.3, .z = 0 }, 0.5));
+        try shapes.append(try Shape.new_sphere(alloc, .{ .x = -1, .y = 0, .z = 10 }, 10));
+        try shapes.append(try Shape.new_sphere(alloc, .{ .x = 0.0, .y = 0.0, .z = -100 }, 50));
 
         return Scene{
             .alloc = alloc,

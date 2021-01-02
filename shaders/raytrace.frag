@@ -181,17 +181,18 @@ vec4 bounce(vec4 pos, vec3 dir, uint seed) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void main() {
-    float dx = 0;//rand(vec2(gl_FragCoord.x, u.frame));
-    float dy = 0;//rand(vec2(gl_FragCoord.y, u.frame));
+    // Add anti-aliasing by jittering within the pixel
+    float dx = rand(vec2(gl_FragCoord.x, u.frame));
+    float dy = rand(vec2(gl_FragCoord.y, u.frame));
 
     vec2 xy = (gl_FragCoord.xy + vec2(dx, dy)) / vec2(u.width_px, u.height_px)*2 - 1;
 
-    vec3 start = vec3(xy, 1);
+    vec4 start = vec4(xy, 1, 0);
 #if USE_PERSPECTIVE
     vec3 dir = normalize(vec3(xy/3, -1));
 #else
     vec3 dir = vec3(0, 0, -1);
 #endif
 
-    fragColor = bounce(vec4(start, 0), dir, u.frame);
+    fragColor = bounce(start, dir, u.frame);
 }

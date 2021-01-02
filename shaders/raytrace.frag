@@ -48,7 +48,7 @@ vec3 rand3(vec3 pos, uint seed) {
 vec3 rand3_sphere(vec3 pos, uint seed) {
     while (true) {
         vec3 v = rand3(pos, seed)*2 - 1;
-        if (length(v) <= 1.0) {
+        if (length(v) <= 1.0 && length(v) > 1e-8) {
             return normalize(v);
         }
         seed++;

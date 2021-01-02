@@ -19,17 +19,15 @@ pub const Raytrace = struct {
     tex_view: c.WGPUTextureViewId,
 
     bind_group: c.WGPUBindGroupId,
-    uniform_buffer: c.WGPUBufferId,
     scene_buffer: c.WGPUBufferId,
     render_pipeline: c.WGPURenderPipelineId,
-
-    uniforms: c.raytraceUniforms,
 
     pub fn init(
         alloc: *std.mem.Allocator,
         device: c.WGPUDeviceId,
         width: u32,
         height: u32,
+        uniform_buf: c.WGPUBufferId,
     ) !Self {
         var arena = std.heap.ArenaAllocator.init(alloc);
         const tmp_alloc: *std.mem.Allocator = &arena.allocator;
@@ -60,15 +58,6 @@ pub const Raytrace = struct {
 
         ////////////////////////////////////////////////////////////////////////
         // Uniform buffers
-        const uniform_buffer = c.wgpu_device_create_buffer(
-            device,
-            &(c.WGPUBufferDescriptor){
-                .label = "raytrace uniforms",
-                .size = @sizeOf(c.raytraceUniforms),
-                .usage = c.WGPUBufferUsage_UNIFORM | c.WGPUBufferUsage_COPY_DST,
-                .mapped_at_creation = false,
-            },
-        );
         const scene_buffer = c.wgpu_device_create_buffer(
             device,
             &(c.WGPUBufferDescriptor){
@@ -138,9 +127,9 @@ pub const Raytrace = struct {
         const bind_group_entries = [_]c.WGPUBindGroupEntry{
             (c.WGPUBindGroupEntry){
                 .binding = 0,
-                .buffer = uniform_buffer,
+                .buffer = uniform_buf,
                 .offset = 0,
-                .size = @sizeOf(c.raytraceUniforms),
+                .size = @sizeOf(c.rayUniforms),
 
                 .sampler = 0, // None
                 .texture_view = 0, // None
@@ -230,19 +219,12 @@ pub const Raytrace = struct {
             .queue = queue,
 
             .bind_group = bind_group,
-            .uniform_buffer = uniform_buffer,
             .scene_buffer = scene_buffer,
 
             .tex = undefined, // assigned in resize() below
             .tex_view = undefined,
 
             .render_pipeline = render_pipeline,
-
-            .uniforms = .{
-                .width_px = width,
-                .height_px = height,
-                .frame = 0,
-            },
         };
         out.resize_(width, height);
         return out;
@@ -254,7 +236,7 @@ pub const Raytrace = struct {
             self.uniform_buffer,
             0,
             @ptrCast([*c]const u8, &self.uniforms),
-            @sizeOf(c.raytraceUniforms),
+            @sizeOf(c.rayUniforms),
         );
     }
 
@@ -267,7 +249,6 @@ pub const Raytrace = struct {
         self.destroy_textures();
 
         c.wgpu_bind_group_destroy(self.bind_group);
-        c.wgpu_buffer_destroy(self.uniform_buffer);
         c.wgpu_buffer_destroy(self.scene_buffer);
 
         c.wgpu_render_pipeline_destroy(self.render_pipeline);
@@ -307,11 +288,6 @@ pub const Raytrace = struct {
                 .array_layer_count = 1,
             },
         );
-
-        self.uniforms.width_px = width;
-        self.uniforms.height_px = height;
-        self.uniforms.frame = 0;
-        // These will be updated in the next call to draw()
     }
 
     pub fn resize(self: *Self, width: u32, height: u32) void {
@@ -319,20 +295,16 @@ pub const Raytrace = struct {
         self.resize_(width, height);
     }
 
-    pub fn draw(self: *Self) void {
-        // Update the frame on the GPU (used as a seed)
-        self.update_uniforms();
-
+    pub fn draw(self: *Self, first: bool) void {
         const cmd_encoder = c.wgpu_device_create_command_encoder(
             self.device,
             &(c.WGPUCommandEncoderDescriptor){ .label = "raytrace encoder" },
         );
 
-        const load_op = if (self.uniforms.frame == 0)
+        const load_op = if (first)
             c.WGPULoadOp._Clear
         else
             c.WGPULoadOp._Load;
-
         const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
             (c.WGPURenderPassColorAttachmentDescriptor){
                 .attachment = self.tex_view,
@@ -367,7 +339,5 @@ pub const Raytrace = struct {
 
         const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);
         c.wgpu_queue_submit(self.queue, &cmd_buf, 1);
-
-        self.uniforms.frame += 1;
     }
 };

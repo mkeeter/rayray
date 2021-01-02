@@ -10,17 +10,16 @@ pub const Blit = struct {
     queue: c.WGPUQueueId,
 
     bind_group_layout: c.WGPUBindGroupLayoutId,
-    uniform_buffer: c.WGPUBufferId,
     tex_sampler: c.WGPUSamplerId,
     bind_group: c.WGPUBindGroupId,
 
     render_pipeline: c.WGPURenderPipelineId,
-    uniforms: c.blitUniforms,
 
     pub fn init(
         alloc: *std.mem.Allocator,
         device: c.WGPUDeviceId,
         tex_view: c.WGPUTextureViewId,
+        uniform_buf: c.WGPUBufferId,
     ) !Blit {
         var arena = std.heap.ArenaAllocator.init(alloc);
         const tmp_alloc: *std.mem.Allocator = &arena.allocator;
@@ -51,18 +50,6 @@ pub const Blit = struct {
             },
         );
         defer c.wgpu_shader_module_destroy(frag_shader);
-
-        ////////////////////////////////////////////////////////////////////////
-        // Uniform buffers
-        const uniform_buffer = c.wgpu_device_create_buffer(
-            device,
-            &(c.WGPUBufferDescriptor){
-                .label = "blit uniforms",
-                .size = @sizeOf(c.blitUniforms),
-                .usage = c.WGPUBufferUsage_UNIFORM | c.WGPUBufferUsage_COPY_DST,
-                .mapped_at_creation = false,
-            },
-        );
 
         ///////////////////////////////////////////////////////////////////////
         // Texture sampler (the texture comes from the Preview struct)
@@ -199,16 +186,18 @@ pub const Blit = struct {
             .tex_sampler = tex_sampler,
             .render_pipeline = render_pipeline,
             .bind_group_layout = bind_group_layout,
-            .uniform_buffer = uniform_buffer,
             .bind_group = undefined, // Assigned in bind_to_tex below
-            .uniforms = .{ .samples = 0 },
         };
-        out.bind_to_tex_(tex_view);
+        out.bind_(tex_view, uniform_buf);
         return out;
     }
 
     // Unchecked bind_to_tex variation, for use in constructor
-    fn bind_to_tex_(self: *Self, tex_view: c.WGPUTextureViewId) void {
+    fn bind_(
+        self: *Self,
+        tex_view: c.WGPUTextureViewId,
+        uniform_buf: c.WGPUBufferId,
+    ) void {
         const bind_group_entries = [_]c.WGPUBindGroupEntry{
             (c.WGPUBindGroupEntry){
                 .binding = 0,
@@ -230,9 +219,9 @@ pub const Blit = struct {
             },
             (c.WGPUBindGroupEntry){
                 .binding = 2,
-                .buffer = self.uniform_buffer,
+                .buffer = uniform_buf,
                 .offset = 0,
-                .size = @sizeOf(c.blitUniforms),
+                .size = @sizeOf(c.rayUniforms),
 
                 .sampler = 0, // None
                 .texture_view = 0, // None
@@ -247,17 +236,19 @@ pub const Blit = struct {
                 .entries_length = bind_group_entries.len,
             },
         );
-        self.uniforms.samples = 0;
     }
 
-    pub fn bind_to_tex(self: *Self, tex_view: c.WGPUTextureViewId) void {
+    pub fn bind(
+        self: *Self,
+        tex_view: c.WGPUTextureViewId,
+        uniform_buf: c.WGPUBufferId,
+    ) void {
         c.wgpu_bind_group_destroy(self.bind_group);
-        self.bind_to_tex_(tex_view);
+        self.bind_(tex_view, uniform_buf);
     }
 
     pub fn deinit(self: *Self) void {
         c.wgpu_sampler_destroy(self.tex_sampler);
-        c.wgpu_buffer_destroy(self.uniform_buffer);
         c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
         c.wgpu_bind_group_destroy(self.bind_group);
     }
@@ -268,8 +259,6 @@ pub const Blit = struct {
         cmd_encoder: c.WGPUCommandEncoderId,
     ) void {
         // Update the frame on the GPU (used as a seed)
-        self.update_uniforms();
-
         const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
             (c.WGPURenderPassColorAttachmentDescriptor){
                 .attachment = next_texture.view_id,
@@ -301,19 +290,5 @@ pub const Blit = struct {
         c.wgpu_render_pass_set_bind_group(rpass, 0, self.bind_group, null, 0);
         c.wgpu_render_pass_draw(rpass, 3, 1, 0, 0);
         c.wgpu_render_pass_end_pass(rpass);
-    }
-
-    pub fn increment_sample_count(self: *Self) void {
-        self.uniforms.samples += 1;
-    }
-
-    fn update_uniforms(self: *Self) void {
-        c.wgpu_queue_write_buffer(
-            self.queue,
-            self.uniform_buffer,
-            0,
-            @ptrCast([*c]const u8, &self.uniforms),
-            @sizeOf(c.blitUniforms),
-        );
     }
 };

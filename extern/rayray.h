@@ -32,12 +32,9 @@ typedef struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-struct raytraceUniforms {
+struct rayUniforms {
     uint32_t width_px;
     uint32_t height_px;
-    uint32_t frame;
-};
-
-struct blitUniforms {
     uint32_t samples;
+    uint32_t samples_per_frame;
 };

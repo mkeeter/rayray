@@ -5,7 +5,7 @@
 layout(location=0) out vec4 fragColor;
 
 layout(set=0, binding=0, std430) uniform Uniforms {
-    raytraceUniforms u;
+    rayUniforms u;
 };
 layout(set=0, binding=1) buffer Scene {
     vec4[] scene_data;
@@ -196,21 +196,26 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
 
 void main() {
     // Set up our random seed based on the frame and pixel position
-    uint seed = hash(hash(hash(u.frame) ^ floatBitsToUint(gl_FragCoord.x))
-                                        ^ floatBitsToUint(gl_FragCoord.y));
-    // Add anti-aliasing by jittering within the pixel
-    float dx = rand(seed);
-    float dy = rand(seed);
+    uint seed = hash(hash(hash(u.samples) ^ floatBitsToUint(gl_FragCoord.x))
+                                          ^ floatBitsToUint(gl_FragCoord.y));
+    fragColor = vec4(0);
 
-    vec2 xy = (gl_FragCoord.xy + vec2(dx, dy)) / vec2(u.width_px, u.height_px)*2 - 1;
+    for (uint i=0; i < u.samples_per_frame; ++i) {
+        // Add anti-aliasing by jittering within the pixel
+        float dx = rand(seed);
+        float dy = rand(seed);
 
-    vec4 start = vec4(xy, 1, 0);
+        vec2 xy = (gl_FragCoord.xy + vec2(dx, dy)) / vec2(u.width_px, u.height_px)*2 - 1;
+
+        vec4 start = vec4(xy, 1, 0);
 #define USE_PERSPECTIVE 1
 #if USE_PERSPECTIVE
-    vec3 dir = normalize(vec3(xy/3, -1));
+        vec3 dir = normalize(vec3(xy/3, -1));
 #else
-    vec3 dir = vec3(0, 0, -1);
+        vec3 dir = vec3(0, 0, -1);
 #endif
 
-    fragColor = vec4(bounce(start, dir, seed), 1);
+        fragColor += vec4(bounce(start, dir, seed), 1);
+    }
+    fragColor /= u.samples_per_frame;
 }

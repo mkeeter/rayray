@@ -21,6 +21,9 @@ pub const Renderer = struct {
     raytrace: Raytrace,
     blit: Blit,
 
+    uniforms: c.rayUniforms,
+    uniform_buf: c.WGPUBufferId,
+
     pub fn init(alloc: *std.mem.Allocator, window: Window) !*Self {
         // Extract the WGPU Surface from the platform-specific window
         const platform = builtin.os.tag;
@@ -72,8 +75,20 @@ pub const Renderer = struct {
         const width = @intCast(u32, width_);
         const height = @intCast(u32, height_);
 
-        const rt = try Raytrace.init(alloc, device, width, height);
-        const blit = try Blit.init(alloc, device, rt.tex_view);
+        ////////////////////////////////////////////////////////////////////////
+        // Uniform buffers (shared by both raytracing and blitter)
+        const uniform_buf = c.wgpu_device_create_buffer(
+            device,
+            &(c.WGPUBufferDescriptor){
+                .label = "blit uniforms",
+                .size = @sizeOf(c.rayUniforms),
+                .usage = c.WGPUBufferUsage_UNIFORM | c.WGPUBufferUsage_COPY_DST,
+                .mapped_at_creation = false,
+            },
+        );
+
+        const rt = try Raytrace.init(alloc, device, width, height, uniform_buf);
+        const blit = try Blit.init(alloc, device, rt.tex_view, uniform_buf);
 
         const out = try alloc.create(Self);
         out.* = .{
@@ -85,6 +100,14 @@ pub const Renderer = struct {
 
             .raytrace = rt,
             .blit = blit,
+
+            .uniforms = .{
+                .width_px = width,
+                .height_px = height,
+                .samples = 0,
+                .samples_per_frame = 1,
+            },
+            .uniform_buf = uniform_buf,
         };
 
         window.set_callbacks(
@@ -96,12 +119,23 @@ pub const Renderer = struct {
         return out;
     }
 
+    fn update_uniforms(self: *Self) void {
+        c.wgpu_queue_write_buffer(
+            self.queue,
+            self.uniform_buf,
+            0,
+            @ptrCast([*c]const u8, &self.uniforms),
+            @sizeOf(c.rayUniforms),
+        );
+    }
+
     pub fn redraw(self: *Self) void {
         const start_ms = std.time.milliTimestamp();
+        self.update_uniforms();
 
         // Cast another set of rays, one per pixel
-        self.raytrace.draw();
-        self.blit.increment_sample_count();
+        self.raytrace.draw(self.uniforms.samples == 0);
+        self.uniforms.samples += 1;
 
         // Begin the main render operation
         const next_texture = c.wgpu_swap_chain_get_next_texture(self.swap_chain);
@@ -135,6 +169,7 @@ pub const Renderer = struct {
     pub fn deinit(self: *Self) void {
         self.blit.deinit();
         self.raytrace.deinit();
+        c.wgpu_buffer_destroy(self.uniform_buf);
 
         self.window.deinit();
     }
@@ -143,9 +178,14 @@ pub const Renderer = struct {
         const width = @intCast(u32, width_);
         const height = @intCast(u32, height_);
 
+        self.uniforms.width_px = width;
+        self.uniforms.height_px = height;
+        self.uniforms.samples = 0;
+        self.uniforms.samples_per_frame = 1;
+
         self.resize_swap_chain(width, height);
         self.raytrace.resize(width, height);
-        self.blit.bind_to_tex(self.raytrace.tex_view);
+        self.blit.bind(self.raytrace.tex_view, self.uniform_buf);
     }
 
     fn resize_swap_chain(self: *Self, width: u32, height: u32) void {

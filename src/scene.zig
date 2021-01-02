@@ -77,6 +77,16 @@ pub const Material = struct {
             .data = data,
         };
     }
+
+    // If the material is tightly packed, then we pack data[0].xyz into the
+    // yzw elements of the material slot.
+    pub fn tightly_packed(self: *const Self) bool {
+        return switch (self.kind) {
+            c.MAT_DIFFUSE, c.MAT_LIGHT => true,
+            c.MAT_METAL => false,
+            else => std.debug.panic("Invalid material type: {}\n", .{self.kind}),
+        };
+    }
 };
 
 pub const Scene = struct {
@@ -222,7 +232,9 @@ pub const Scene = struct {
             num_data += s.data.len;
         }
         for (self.materials.items) |m| {
-            num_data += m.data.len;
+            if (!m.tightly_packed()) {
+                num_data += m.data.len;
+            }
         }
 
         // Index of primary encoding (one vec4 per item)
@@ -254,15 +266,24 @@ pub const Scene = struct {
 
         // Put the materials after the shapes
         for (self.materials.items) |m| {
-            out[i] = .{
-                .x = @intToFloat(f32, m.kind),
-                .y = @intToFloat(f32, j),
-                .z = 0,
-                .w = 0,
-            };
-            std.mem.copy(c.vec4, out[j..], m.data);
+            if (m.tightly_packed()) {
+                out[i] = .{
+                    .x = @intToFloat(f32, m.kind),
+                    .y = m.data[0].x,
+                    .z = m.data[0].y,
+                    .w = m.data[0].z,
+                };
+            } else {
+                out[i] = .{
+                    .x = @intToFloat(f32, m.kind),
+                    .y = @intToFloat(f32, j),
+                    .z = 0,
+                    .w = 0,
+                };
+                std.mem.copy(c.vec4, out[j..], m.data);
+                j += m.data.len;
+            }
             i += 1;
-            j += m.data.len;
         }
         return out;
     }

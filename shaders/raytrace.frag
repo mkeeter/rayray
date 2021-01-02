@@ -160,17 +160,17 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
 
         // Look at the material and decide whether to terminate
         vec4 mat = scene_data[uint(shape.z)];
-        uint mat_offset = uint(mat.y);
         uint mat_type = uint(mat.x);
         switch (mat_type) {
             // Hit a light
             case MAT_LIGHT:
-                return color * scene_data[mat_offset].xyz;
+                return color * mat.yzw;
             case MAT_DIFFUSE:
-                color *= scene_data[mat_offset].xyz;
+                color *= mat.yzw;
                 dir = norm + rand3_sphere(seed);
                 break;
             case MAT_METAL:
+                uint mat_offset = uint(mat.y);
                 color *= scene_data[mat_offset].xyz;
                 dir -= norm * dot(norm, dir)*2;
                 float fuzz = scene_data[mat_offset].w;

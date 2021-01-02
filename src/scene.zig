@@ -24,6 +24,22 @@ pub const Shape = struct {
             .data = data,
         };
     }
+
+    pub fn new_infinite_plane(
+        alloc: *std.mem.Allocator,
+        normal: c.vec3,
+        offset: f32,
+        mat: u32,
+    ) !Self {
+        var data = try alloc.alloc(c.vec4, 1);
+        data[0] = .{ .x = normal.x, .y = normal.y, .z = normal.z, .w = offset };
+
+        return Self{
+            .kind = c.SHAPE_INFINITE_PLANE,
+            .mat = mat,
+            .data = data,
+        };
+    }
 };
 
 pub const Material = struct {
@@ -130,45 +146,45 @@ pub const Scene = struct {
             light,
         ));
         // Back wall
-        try scene.shapes.append(try Shape.new_sphere(
+        try scene.shapes.append(try Shape.new_infinite_plane(
             alloc,
-            .{ .x = 0, .y = 0, .z = -d },
-            r,
+            .{ .x = 0, .y = 0, .z = 1 },
+            -1,
             white,
         ));
         // Left wall
-        try scene.shapes.append(try Shape.new_sphere(
+        try scene.shapes.append(try Shape.new_infinite_plane(
             alloc,
-            .{ .x = -d, .y = 0, .z = 0 },
-            r,
+            .{ .x = 1, .y = 0, .z = 0 },
+            -1,
             red,
         ));
         // Right wall
-        try scene.shapes.append(try Shape.new_sphere(
+        try scene.shapes.append(try Shape.new_infinite_plane(
             alloc,
-            .{ .x = d, .y = 0, .z = 0 },
-            r,
+            .{ .x = -1, .y = 0, .z = 0 },
+            -1,
             green,
         ));
         // Top wall
-        try scene.shapes.append(try Shape.new_sphere(
+        try scene.shapes.append(try Shape.new_infinite_plane(
             alloc,
-            .{ .x = 0, .y = d, .z = 0 },
-            r,
+            .{ .x = 0, .y = -1, .z = 0 },
+            -1,
             white,
         ));
         // Bottom wall
-        try scene.shapes.append(try Shape.new_sphere(
+        try scene.shapes.append(try Shape.new_infinite_plane(
             alloc,
-            .{ .x = 0, .y = -d, .z = 0 },
-            r,
+            .{ .x = 0, .y = 1, .z = 0 },
+            -1,
             white,
         ));
         // Front wall
-        try scene.shapes.append(try Shape.new_sphere(
+        try scene.shapes.append(try Shape.new_infinite_plane(
             alloc,
-            .{ .x = 0, .y = 0, .z = d },
-            r,
+            .{ .x = 0, .y = 0, .z = 1 },
+            -1,
             white,
         ));
         // Blue sphere

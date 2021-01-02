@@ -51,6 +51,16 @@ pub const Material = struct {
             .data = data,
         };
     }
+
+    pub fn new_metal(alloc: *std.mem.Allocator, r: f32, g: f32, b: f32, fuzz: f32) !Self {
+        var data = try alloc.alloc(c.vec4, 1);
+        data[0] = .{ .x = r, .y = g, .z = b, .w = fuzz };
+
+        return Self{
+            .kind = c.MAT_METAL,
+            .data = data,
+        };
+    }
 };
 
 pub const Scene = struct {
@@ -107,6 +117,7 @@ pub const Scene = struct {
         const red = try scene.new_material(try Material.new_diffuse(alloc, 1, 0.1, 0.1));
         const blue = try scene.new_material(try Material.new_diffuse(alloc, 0.1, 0.1, 1));
         const green = try scene.new_material(try Material.new_diffuse(alloc, 0.1, 1, 0.1));
+        const metal = try scene.new_material(try Material.new_metal(alloc, 1, 1, 1, 0.1));
         const light = try scene.new_material(try Material.new_light(alloc, 1, 1, 1));
 
         const d = 100;
@@ -160,12 +171,19 @@ pub const Scene = struct {
             r,
             white,
         ));
-        // Sphere
+        // Blue sphere
         try scene.shapes.append(try Shape.new_sphere(
             alloc,
-            .{ .x = -0.2, .y = -0.6, .z = 0.1 },
+            .{ .x = -0.3, .y = -0.6, .z = -0.1 },
             0.4,
             blue,
+        ));
+        // Metal sphere
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 0.5, .y = -0.7, .z = 0.3 },
+            0.3,
+            metal,
         ));
 
         return scene;

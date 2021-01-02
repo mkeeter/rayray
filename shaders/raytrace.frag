@@ -156,6 +156,7 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
 
         // Extract the shape so we can pull the material
         vec4 shape = scene_data[uint(pos.w)];
+        vec3 norm = norm(pos);
 
         // Look at the material and decide whether to terminate
         vec4 mat = scene_data[uint(shape.z)];
@@ -165,20 +166,25 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
             // Hit a light
             case MAT_LIGHT:
                 return color * scene_data[mat_offset].xyz;
-            default:
+            case MAT_DIFFUSE:
                 color *= scene_data[mat_offset].xyz;
+                dir = norm + rand3_sphere(seed);
+                break;
+            case MAT_METAL:
+                color *= scene_data[mat_offset].xyz;
+                dir -= norm * dot(norm, dir)*2;
+                float fuzz = scene_data[mat_offset].w;
+                if (fuzz != 0) {
+                    dir = normalize(dir + rand3_sphere(seed) * fuzz);
+                }
                 break;
         }
 
-        vec3 n = norm(pos);
-        vec3 r = rand3_sphere(seed);
-
         // Normalize, snapping to the normal if the point on the sphere
         // is pathologically opposite it
-        dir = n + r;
         float len = length(dir);
         if (len < 1e-8) {
-            dir = n;
+            dir = norm;
         } else {
             dir /= len;
         }

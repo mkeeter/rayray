@@ -28,6 +28,7 @@ typedef struct {
 #define MAT_NONE 0
 #define MAT_DIFFUSE 1
 #define MAT_LIGHT 2
+#define MAT_METAL 3
 
 ////////////////////////////////////////////////////////////////////////////////
 

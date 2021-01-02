@@ -20,10 +20,6 @@ pub const Renderer = struct {
 
     raytrace: Raytrace,
     blit: Blit,
-    rays_per_frame: usize,
-
-    dt: [7]i64,
-    dt_index: usize,
 
     pub fn init(alloc: *std.mem.Allocator, window: Window) !*Self {
         // Extract the WGPU Surface from the platform-specific window
@@ -89,12 +85,7 @@ pub const Renderer = struct {
 
             .raytrace = rt,
             .blit = blit,
-            .rays_per_frame = 1,
-
-            .dt = undefined,
-            .dt_index = 0,
         };
-        out.reset_dt();
 
         window.set_callbacks(
             size_cb,
@@ -109,11 +100,8 @@ pub const Renderer = struct {
         const start_ms = std.time.milliTimestamp();
 
         // Cast another set of rays, one per pixel
-        var i: usize = 0;
-        while (i < self.rays_per_frame) : (i += 1) {
-            self.raytrace.draw();
-            self.blit.increment_sample_count();
-        }
+        self.raytrace.draw();
+        self.blit.increment_sample_count();
 
         // Begin the main render operation
         const next_texture = c.wgpu_swap_chain_get_next_texture(self.swap_chain);
@@ -133,32 +121,8 @@ pub const Renderer = struct {
 
         // Adjust rays per frame based on median-filtered framerate
         const end_ms = std.time.milliTimestamp();
-        const dt = self.append_dt(end_ms - start_ms);
-
-        if (dt < 20) {
-            self.rays_per_frame += 1;
-        } else if (dt > 50 and self.rays_per_frame > 1) {
-            self.rays_per_frame -= 1;
-        }
-        std.debug.print("{} {}\n", .{ dt, self.rays_per_frame });
-    }
-
-    // Appends a new dt to the circular buffer, then returns the median
-    fn append_dt(self: *Self, dt: i64) i64 {
-        self.dt[self.dt_index] = dt;
-        self.dt_index = (self.dt_index + 1) % self.dt.len;
-        var dt_local = self.dt;
-        comptime const asc = std.sort.asc(i64);
-        std.sort.sort(i64, dt_local[0..], {}, asc);
-        return dt_local[self.dt.len / 2];
-    }
-
-    fn reset_dt(self: *Self) void {
-        var i: usize = 0;
-        while (i < self.dt.len) : (i += 1) {
-            self.dt[i] = 1000;
-        }
-        self.dt_index = 0;
+        const dt = end_ms - start_ms;
+        std.debug.print("{}\n", .{dt});
     }
 
     pub fn run(self: *Self) !void {
@@ -182,7 +146,6 @@ pub const Renderer = struct {
         self.resize_swap_chain(width, height);
         self.raytrace.resize(width, height);
         self.blit.bind_to_tex(self.raytrace.tex_view);
-        self.reset_dt();
     }
 
     fn resize_swap_chain(self: *Self, width: u32, height: u32) void {

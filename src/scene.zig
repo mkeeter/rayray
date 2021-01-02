@@ -183,7 +183,7 @@ pub const Scene = struct {
         // Front wall
         try scene.shapes.append(try Shape.new_infinite_plane(
             alloc,
-            .{ .x = 0, .y = 0, .z = 1 },
+            .{ .x = 0, .y = 0, .z = -1 },
             -1,
             white,
         ));

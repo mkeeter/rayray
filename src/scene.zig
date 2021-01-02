@@ -76,6 +76,7 @@ pub const Scene = struct {
     pub fn new_simple_scene(alloc: *std.mem.Allocator) !Self {
         var scene = new(alloc);
         const white = try scene.new_material(try Material.new_diffuse(alloc, 1, 1, 1));
+        const red = try scene.new_material(try Material.new_diffuse(alloc, 1, 0.2, 0.2));
         const light = try scene.new_material(try Material.new_light(alloc, 1, 1, 1));
 
         var shapes = std.ArrayList(Shape).init(alloc);
@@ -90,6 +91,12 @@ pub const Scene = struct {
             .{ .x = 0.5, .y = 0.3, .z = 0 },
             0.5,
             white,
+        ));
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = -0.5, .y = 0.3, .z = 0 },
+            0.3,
+            red,
         ));
 
         return scene;

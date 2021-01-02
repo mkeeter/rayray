@@ -150,14 +150,15 @@ vec4 trace(vec4 start, vec3 dir) {
 }
 
 #define BOUNCES 2
-vec4 bounce(vec4 pos, vec3 dir, inout uint seed) {
+vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
+    vec3 color = vec3(1);
     for (uint i=0; i < BOUNCES; ++i) {
         // Walk to the next object in the scene
         pos = trace(pos, dir);
 
         // If we escaped the world, then terminate
         if (pos.w == 0) {
-            return vec4(0);
+            return vec3(0);
         }
 
         // Extract the shape so we can pull the material
@@ -170,9 +171,9 @@ vec4 bounce(vec4 pos, vec3 dir, inout uint seed) {
         switch (mat_type) {
             // Hit a light
             case MAT_LIGHT:
-                return vec4(scene_data[mat_offset].xyz, 1);
+                return color * scene_data[mat_offset].xyz;
             default:
-                // Not yet implemented
+                color *= scene_data[mat_offset].xyz;
                 break;
         }
 
@@ -190,7 +191,7 @@ vec4 bounce(vec4 pos, vec3 dir, inout uint seed) {
         }
         //return vec4(dir, 1);
     }
-    return vec4(0);
+    return vec3(0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -212,5 +213,5 @@ void main() {
     vec3 dir = vec3(0, 0, -1);
 #endif
 
-    fragColor = bounce(start, dir, seed);
+    fragColor = vec4(bounce(start, dir, seed), 1);
 }

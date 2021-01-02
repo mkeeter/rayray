@@ -12,42 +12,44 @@ layout(set=0, binding=1) buffer Scene {
 };
 
 ////////////////////////////////////////////////////////////////////////////////
-// RNGs
-// http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/
-float rand(vec2 co) {
-    float a = 12.9898;
-    float b = 78.233;
-    float c = 43758.5453;
-    float dt = dot(co.xy, vec2(a, b));
-    float sn = mod(dt, 3.1415926);
-    return fract(sin(sn) * c);
+// Jenkins hash function, specialized for a uint key
+uint32_t hash(uint key) {
+    uint h = 0;
+    for (uint i=0; i < 4; ++i) {
+        h += (key >> (i * 8)) & 0xFF;
+        h += h << 10;
+        h ^= h >> 6;
+    }
+    h += h << 3;
+    h ^= h >> 11;
+    h += h << 15;
+    return h;
 }
 
-// Single-round randomization, which will show patterns in many cases
-vec3 rand3_a(vec3 pos, uint seed) {
-    float a = rand(vec2(seed, rand(pos.xy)));
-    float b = rand(vec2(seed, rand(pos.xz)));
-    float c = rand(vec2(seed, rand(pos.yz)));
-    return vec3(a, b, c);
+// Roughly based on
+// https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+float to_float(uint m) {
+    const uint ieeeMantissa = 0x007FFFFFu; // binary32 mantissa bitmask
+    const uint ieeeOne      = 0x3F800000u; // 1.0 in IEEE binary32
+
+    m &= ieeeMantissa;                     // Keep only mantissa bits (fractional part)
+    m |= ieeeOne;                          // Add fractional part to 1.0
+
+    float  f = uintBitsToFloat( m );       // Range [1:2]
+    return f - 1.0;                        // Range [0:1]
 }
 
-// Single-round randomization, which will show patterns in many cases
-vec3 rand3_b(vec3 pos, uint seed) {
-    float a = rand(vec2(rand(pos.xy), seed));
-    float b = rand(vec2(rand(pos.xz), seed));
-    float c = rand(vec2(rand(pos.yz), seed));
-    return vec3(b, c, a);
-}
-
-// Two-round randomization, which is closer to uniform
-vec3 rand3(vec3 pos, uint seed) {
-    return rand3_a(rand3_b(pos, seed), seed);
+vec3 rand3(uint seed) {
+    uint a = hash(seed);
+    uint b = hash(a);
+    uint c = hash(b);
+    return vec3(to_float(a), to_float(b), to_float(c));
 }
 
 // Returns a coordinate uniformly distributed on a sphere
-vec3 rand3_sphere(vec3 pos, uint seed) {
+vec3 rand3_sphere(uint seed) {
     while (true) {
-        vec3 v = rand3(pos, seed)*2 - 1;
+        vec3 v = rand3(seed)*2 - 1;
         if (length(v) <= 1.0 && length(v) > 1e-8) {
             return normalize(v);
         }
@@ -162,7 +164,7 @@ vec4 bounce(vec4 pos, vec3 dir, uint seed) {
         }
 
         vec3 n = norm(pos);
-        vec3 r = rand3_sphere(pos.xyz, seed*BOUNCES + i);
+        vec3 r = rand3_sphere(seed*BOUNCES + i);
 
         // Normalize, snapping to the normal if the point on the sphere
         // is pathologically opposite it
@@ -182,8 +184,10 @@ vec4 bounce(vec4 pos, vec3 dir, uint seed) {
 
 void main() {
     // Add anti-aliasing by jittering within the pixel
-    float dx = rand(vec2(gl_FragCoord.x, u.frame));
-    float dy = rand(vec2(gl_FragCoord.y, u.frame));
+    uint seed = hash(u.frame) ^ hash(floatBitsToUint(gl_FragCoord.x)) ^ hash(floatBitsToUint(gl_FragCoord.y));
+    float dx = to_float(seed);
+    seed = hash(seed);
+    float dy = to_float(seed);
 
     vec2 xy = (gl_FragCoord.xy + vec2(dx, dy)) / vec2(u.width_px, u.height_px)*2 - 1;
 
@@ -194,5 +198,5 @@ void main() {
     vec3 dir = vec3(0, 0, -1);
 #endif
 
-    fragColor = bounce(start, dir, u.frame);
+    fragColor = bounce(start, dir, seed);
 }

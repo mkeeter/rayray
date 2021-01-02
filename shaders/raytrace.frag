@@ -155,12 +155,25 @@ vec4 bounce(vec4 pos, vec3 dir, inout uint seed) {
         // Walk to the next object in the scene
         pos = trace(pos, dir);
 
-        // We reached a light
-        if (pos.w == 1) {
-            return vec4(1);
-        // We escaped the world
-        } else if (pos.w == 0) {
+        // If we escaped the world, then terminate
+        if (pos.w == 0) {
             return vec4(0);
+        }
+
+        // Extract the shape so we can pull the material
+        vec4 shape = scene_data[uint(pos.w)];
+
+        // Look at the material and decide whether to terminate
+        vec4 mat = scene_data[uint(shape.z)];
+        uint mat_offset = uint(mat.y);
+        uint mat_type = uint(mat.x);
+        switch (mat_type) {
+            // Hit a light
+            case MAT_LIGHT:
+                return vec4(scene_data[mat_offset].xyz, 1);
+            default:
+                // Not yet implemented
+                break;
         }
 
         vec3 n = norm(pos);

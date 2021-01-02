@@ -25,6 +25,10 @@ typedef struct {
 #define SHAPE_INFINITE_PLANE 2
 #define SHAPE_FINITE_PLANE 3
 
+#define MAT_NONE 0
+#define MAT_DIFFUSE 1
+#define MAT_LIGHT 2
+
 ////////////////////////////////////////////////////////////////////////////////
 
 struct raytraceUniforms {

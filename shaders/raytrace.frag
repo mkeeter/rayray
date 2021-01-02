@@ -58,32 +58,28 @@ vec3 rand3_sphere(inout uint seed) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vec4 hit_plane(vec3 start, vec3 dir, vec3 norm, float off) {
+float hit_plane(vec3 start, vec3 dir, vec3 norm, float off) {
     // dot(norm, pos) == off
     // dot(norm, start + n*dir) == off
     // dot(norm, start) + dot(norm, n*dir) == off
     // dot(norm, start) + n*dot(norm, dir) == off
     float d = (off - dot(norm, start)) / dot(norm, dir);
-    if (d > 0) {
-        return vec4(start + d*dir, 1);
-    } else {
-        return vec4(0);
-    }
+    return d;
 }
 
-vec4 hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
+float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     vec3 delta = center - start;
     float d = dot(delta, dir);
     if (d < 0) {
-        return vec4(0);
+        return -1;
     }
     vec3 nearest = start + dir * d;
     float min_distance = length(center - nearest);
     if (min_distance < r) {
         float q = sqrt(r*r - min_distance*min_distance);
-        return vec4(nearest - q*dir, 1);
+        return d - q;
     } else {
-        return vec4(0);
+        return -1;
     }
 }
 
@@ -123,33 +119,30 @@ vec4 trace(vec4 start, vec3 dir) {
         }
         vec4 shape = scene_data[i];
         uint offset = uint(shape.y);
-        vec4 hit = vec4(0);
+        float dist;
         switch ((uint(shape.x))) {
             case SHAPE_SPHERE: {
                 vec4 d = scene_data[offset];
-                hit = hit_sphere(start.xyz, dir, d.xyz, d.w);
+                dist = hit_sphere(start.xyz, dir, d.xyz, d.w);
                 break;
             }
             case SHAPE_INFINITE_PLANE: {
                 vec4 d = scene_data[offset];
-                hit = hit_plane(start.xyz, dir, d.xyz, d.w);
+                dist = hit_plane(start.xyz, dir, d.xyz, d.w);
                 break;
             }
             default: // unimplemented shape
                 continue;
         }
-        if (hit.w != 0) {
-            float dist = length(hit.xyz - start.xyz);
-            if (dist < best_dist) {
-                best_dist = dist;
-                best_hit = vec4(hit.xyz, i);
-            }
+        if (dist > 0 && dist < best_dist) {
+            best_dist = dist;
+            best_hit = vec4(start.xyz + dir*dist, i);
         }
     }
     return best_hit;
 }
 
-#define BOUNCES 2
+#define BOUNCES 6
 vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
     vec3 color = vec3(1);
     for (uint i=0; i < BOUNCES; ++i) {

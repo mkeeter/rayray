@@ -105,6 +105,7 @@ pub const Scene = struct {
         var scene = new(alloc);
         const white = try scene.new_material(try Material.new_diffuse(alloc, 1, 1, 1));
         const red = try scene.new_material(try Material.new_diffuse(alloc, 1, 0.1, 0.1));
+        const blue = try scene.new_material(try Material.new_diffuse(alloc, 0.1, 0.1, 1));
         const green = try scene.new_material(try Material.new_diffuse(alloc, 0.1, 1, 0.1));
         const light = try scene.new_material(try Material.new_light(alloc, 1, 1, 1));
 
@@ -152,12 +153,19 @@ pub const Scene = struct {
             r,
             white,
         ));
-        // Bottom wall
+        // Front wall
         try scene.shapes.append(try Shape.new_sphere(
             alloc,
             .{ .x = 0, .y = 0, .z = d },
             r,
             white,
+        ));
+        // Sphere
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = -0.2, .y = -0.6, .z = 0.1 },
+            0.4,
+            blue,
         ));
 
         return scene;

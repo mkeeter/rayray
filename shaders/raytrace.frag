@@ -83,8 +83,7 @@ float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     }
 }
 
-vec3 norm(vec4 pos) {
-    vec4 shape = scene_data[uint(pos.w)];
+vec3 norm(vec4 pos, vec4 shape) {
     uint offset = uint(shape.y);
     switch (uint(shape.x)) {
         case SHAPE_SPHERE: {
@@ -156,7 +155,7 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
 
         // Extract the shape so we can pull the material
         vec4 shape = scene_data[uint(pos.w)];
-        vec3 norm = norm(pos);
+        vec3 norm = norm(pos, shape);
 
         // Look at the material and decide whether to terminate
         vec4 mat = scene_data[uint(shape.z)];

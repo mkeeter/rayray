@@ -138,7 +138,7 @@ pub const Renderer = struct {
 
         // Cast another set of rays, one per pixel
         self.raytrace.draw(self.uniforms.samples == 0);
-        self.uniforms.samples += 1;
+        self.uniforms.samples += self.uniforms.samples_per_frame;
 
         // Begin the main render operation
         const next_texture = c.wgpu_swap_chain_get_next_texture(self.swap_chain);

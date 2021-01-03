@@ -202,9 +202,22 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 // This doesn't support nested materials with different etas!
                 mat_offset = uint(mat.y);
                 float eta = scene_data[mat_offset].w;
-                // If we're entering the shape, then tweak values
+                // If we're entering the shape, then decide whether to reflect
+                // or refract based on the incoming angle
                 if (dot(dir, norm) < 0) {
-                    dir = refract(dir, norm, 1/eta);
+                    eta = 1/eta;
+
+                    // Use Schlick's approximation for reflectance.
+                    float cosine = min(dot(-dir, norm), 1.0);
+                    float r0 = (1 - eta) / (1 + eta);
+                    r0 = r0*r0;
+                    float reflectance = r0 + (1 - r0) * pow((1 - cosine), 5);
+
+                    if (reflectance > rand(seed)) {
+                        dir -= norm * dot(norm, dir)*2;
+                    } else {
+                        dir = refract(dir, norm, eta);
+                    }
                 } else {
                     // Otherwise, we're exiting the shape and need to check
                     // for total internal reflection

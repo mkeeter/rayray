@@ -262,5 +262,4 @@ void main() {
 
         fragColor += vec4(bounce(start, dir, seed), 1);
     }
-    fragColor /= u.samples_per_frame;
 }

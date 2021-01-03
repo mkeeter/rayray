@@ -205,7 +205,8 @@ void main() {
         float dx = rand(seed);
         float dy = rand(seed);
 
-        vec2 xy = (gl_FragCoord.xy + vec2(dx, dy)) / vec2(u.width_px, u.height_px)*2 - 1;
+        vec2 pixel_pos = gl_FragCoord.xy + vec2(dx, dy);
+        vec2 xy = 2*pixel_pos / vec2(u.width_px, u.height_px) - 1;
 
         vec4 start = vec4(xy, 1, 0);
 #define USE_PERSPECTIVE 1

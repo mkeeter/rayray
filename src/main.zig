@@ -19,4 +19,5 @@ pub fn main() anyerror!void {
     defer renderer.deinit();
 
     try renderer.run();
+    renderer.print_stats();
 }

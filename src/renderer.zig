@@ -24,6 +24,8 @@ pub const Renderer = struct {
     uniforms: c.rayUniforms,
     uniform_buf: c.WGPUBufferId,
 
+    start_time_ms: i64,
+
     pub fn init(alloc: *std.mem.Allocator, window: Window) !*Self {
         // Extract the WGPU Surface from the platform-specific window
         const platform = builtin.os.tag;
@@ -108,6 +110,8 @@ pub const Renderer = struct {
                 .samples_per_frame = 1,
             },
             .uniform_buf = uniform_buf,
+
+            .start_time_ms = std.time.milliTimestamp(),
         };
 
         window.set_callbacks(
@@ -130,7 +134,6 @@ pub const Renderer = struct {
     }
 
     pub fn redraw(self: *Self) void {
-        const start_ms = std.time.milliTimestamp();
         self.update_uniforms();
 
         // Cast another set of rays, one per pixel
@@ -152,11 +155,32 @@ pub const Renderer = struct {
         const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);
         c.wgpu_queue_submit(self.queue, &cmd_buf, 1);
         c.wgpu_swap_chain_present(self.swap_chain);
+    }
 
-        // Adjust rays per frame based on median-filtered framerate
-        const end_ms = std.time.milliTimestamp();
-        const dt = end_ms - start_ms;
-        std.debug.print("{}\n", .{dt});
+    pub fn print_stats(self: *const Self) void {
+        var ray_count = @intCast(u64, self.uniforms.width_px) *
+            @intCast(u64, self.uniforms.height_px) *
+            @intCast(u64, self.uniforms.samples);
+        var prefix: u8 = ' ';
+        if (ray_count > 1_000_000_000) {
+            ray_count /= 1_000_000_000;
+            prefix = 'G';
+        } else if (ray_count > 1_000_000) {
+            ray_count /= 1_000_000;
+            prefix = 'M';
+        } else if (ray_count > 1_000) {
+            ray_count /= 1_000;
+            prefix = 'K';
+        }
+
+        const dt_sec = @intToFloat(f64, std.time.milliTimestamp() - self.start_time_ms) / 1000.0;
+        std.debug.print("Rendered {} {c}rays in {d:.2} sec ({d:.2} {c}ray/sec)", .{
+            ray_count,
+            prefix,
+            dt_sec,
+            @intToFloat(f64, ray_count) / dt_sec,
+            prefix,
+        });
     }
 
     pub fn run(self: *Self) !void {
@@ -181,6 +205,8 @@ pub const Renderer = struct {
         self.uniforms.width_px = width;
         self.uniforms.height_px = height;
         self.uniforms.samples = 0;
+
+        self.start_time_ms = std.time.milliTimestamp();
 
         self.resize_swap_chain(width, height);
         self.raytrace.resize(width, height);

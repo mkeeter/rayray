@@ -141,6 +141,17 @@ vec4 trace(vec4 start, vec3 dir) {
     return best_hit;
 }
 
+
+// Normalize, snapping to the normal if the vector is pathologically short
+vec3 sanitize(vec3 dir, vec3 norm) {
+    float len = length(dir);
+    if (len < 1e-8) {
+        return norm;
+    } else {
+        return dir / len;
+    }
+}
+
 #define BOUNCES 6
 vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
     vec3 color = vec3(1);
@@ -166,7 +177,7 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 return color * mat.yzw;
             case MAT_DIFFUSE:
                 color *= mat.yzw;
-                dir = norm + rand3_sphere(seed);
+                dir = sanitize(norm + rand3_sphere(seed), norm);
                 break;
             case MAT_METAL:
                 uint mat_offset = uint(mat.y);
@@ -174,19 +185,16 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 dir -= norm * dot(norm, dir)*2;
                 float fuzz = scene_data[mat_offset].w;
                 if (fuzz != 0) {
-                    dir = normalize(dir + rand3_sphere(seed) * fuzz);
+                    dir += rand3_sphere(seed) * fuzz;
+                    if (fuzz >= 0.9) {
+                        dir = sanitize(dir, norm);
+                    } else {
+                        dir = normalize(dir);
+                    }
                 }
                 break;
         }
 
-        // Normalize, snapping to the normal if the point on the sphere
-        // is pathologically opposite it
-        float len = length(dir);
-        if (len < 1e-8) {
-            dir = norm;
-        } else {
-            dir /= len;
-        }
         //return vec4(dir, 1);
     }
     return vec3(0);

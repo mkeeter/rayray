@@ -153,7 +153,7 @@ pub const Scene = struct {
         const red = try scene.new_material(try Material.new_diffuse(alloc, 1, 0.1, 0.1));
         const blue = try scene.new_material(try Material.new_diffuse(alloc, 0.1, 0.1, 1));
         const green = try scene.new_material(try Material.new_diffuse(alloc, 0.1, 1, 0.1));
-        const metal = try scene.new_material(try Material.new_metal(alloc, 1, 1, 1, 0.1));
+        const metal = try scene.new_material(try Material.new_metal(alloc, 1, 1, 0.5, 0.1));
         const glass = try scene.new_material(try Material.new_glass(alloc, 1, 1, 1, 1.5));
         const light = try scene.new_material(try Material.new_light(alloc, 4, 4, 4));
 
@@ -209,7 +209,7 @@ pub const Scene = struct {
         // Blue sphere
         try scene.shapes.append(try Shape.new_sphere(
             alloc,
-            .{ .x = -0.3, .y = -0.6, .z = -0.1 },
+            .{ .x = -0.3, .y = -0.6, .z = -0.2 },
             0.4,
             blue,
         ));
@@ -223,7 +223,7 @@ pub const Scene = struct {
         // Glass sphere
         try scene.shapes.append(try Shape.new_sphere(
             alloc,
-            .{ .x = -0.1, .y = -0.8, .z = 0.5 },
+            .{ .x = 0.1, .y = -0.8, .z = 0.5 },
             0.2,
             glass,
         ));

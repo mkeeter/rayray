@@ -143,7 +143,7 @@ vec4 trace(vec4 start, vec3 dir) {
 
 
 // Normalize, snapping to the normal if the vector is pathologically short
-vec3 sanitize(vec3 dir, vec3 norm) {
+vec3 sanitize_dir(vec3 dir, vec3 norm) {
     float len = length(dir);
     if (len < 1e-8) {
         return norm;
@@ -177,7 +177,7 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 return color * mat.yzw;
             case MAT_DIFFUSE:
                 color *= mat.yzw;
-                dir = sanitize(norm + rand3_sphere(seed), norm);
+                dir = sanitize_dir(norm + rand3_sphere(seed), norm);
                 break;
             case MAT_METAL:
                 uint mat_offset = uint(mat.y);
@@ -187,7 +187,7 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 if (fuzz != 0) {
                     dir += rand3_sphere(seed) * fuzz;
                     if (fuzz >= 0.9) {
-                        dir = sanitize(dir, norm);
+                        dir = sanitize_dir(dir, norm);
                     } else {
                         dir = normalize(dir);
                     }

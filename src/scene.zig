@@ -78,12 +78,22 @@ pub const Material = struct {
         };
     }
 
+    pub fn new_glass(alloc: *std.mem.Allocator, r: f32, g: f32, b: f32, eta: f32) !Self {
+        var data = try alloc.alloc(c.vec4, 1);
+        data[0] = .{ .x = r, .y = g, .z = b, .w = eta };
+
+        return Self{
+            .kind = c.MAT_GLASS,
+            .data = data,
+        };
+    }
+
     // If the material is tightly packed, then we pack data[0].xyz into the
     // yzw elements of the material slot.
     pub fn tightly_packed(self: *const Self) bool {
         return switch (self.kind) {
             c.MAT_DIFFUSE, c.MAT_LIGHT => true,
-            c.MAT_METAL => false,
+            c.MAT_METAL, c.MAT_GLASS => false,
             else => std.debug.panic("Invalid material type: {}\n", .{self.kind}),
         };
     }
@@ -144,6 +154,7 @@ pub const Scene = struct {
         const blue = try scene.new_material(try Material.new_diffuse(alloc, 0.1, 0.1, 1));
         const green = try scene.new_material(try Material.new_diffuse(alloc, 0.1, 1, 0.1));
         const metal = try scene.new_material(try Material.new_metal(alloc, 1, 1, 1, 0.1));
+        const glass = try scene.new_material(try Material.new_glass(alloc, 1, 1, 1, 1.5));
         const light = try scene.new_material(try Material.new_light(alloc, 4, 4, 4));
 
         // Light
@@ -208,6 +219,13 @@ pub const Scene = struct {
             .{ .x = 0.5, .y = -0.7, .z = 0.3 },
             0.3,
             metal,
+        ));
+        // Glass sphere
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = -0.1, .y = -0.8, .z = 0.5 },
+            0.2,
+            glass,
         ));
 
         return scene;

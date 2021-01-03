@@ -195,6 +195,13 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                         dir = normalize(dir);
                     }
                 }
+            case MAT_GLASS:
+                // Entering the shape
+                if (dot(dir, norm) < 0) {
+                    dir = refract(dir, norm, 1.3);
+                } else {
+                    dir = refract(dir, -norm, 1/1.3);
+                }
                 break;
         }
     }

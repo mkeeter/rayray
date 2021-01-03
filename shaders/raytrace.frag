@@ -70,14 +70,17 @@ float hit_plane(vec3 start, vec3 dir, vec3 norm, float off) {
 float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     vec3 delta = center - start;
     float d = dot(delta, dir);
-    if (d < 0) {
-        return -1;
-    }
     vec3 nearest = start + dir * d;
     float min_distance = length(center - nearest);
     if (min_distance < r) {
+        // Return the smallest positive intersection.  If we're inside the
+        // sphere, then this will be against a negative normal
         float q = sqrt(r*r - min_distance*min_distance);
-        return d - q;
+        if (d > q) {
+            return d - q;
+        } else {
+            return d + q;
+        }
     } else {
         return -1;
     }

@@ -231,6 +231,69 @@ pub const Scene = struct {
         return scene;
     }
 
+    pub fn new_horizon(alloc: *std.mem.Allocator) !Self {
+        var scene = new(alloc);
+        const blue = try scene.new_material(try Material.new_diffuse(alloc, 0.5, 0.5, 1));
+        const red = try scene.new_material(try Material.new_diffuse(alloc, 1, 0.5, 0.5));
+        const glass = try scene.new_material(try Material.new_glass(alloc, 1, 1, 1, 1.5));
+        const light = try scene.new_material(try Material.new_light(alloc, 1, 1, 1));
+
+        // Back wall
+        try scene.shapes.append(try Shape.new_infinite_plane(
+            alloc,
+            .{ .x = 0, .y = 0, .z = 1 },
+            -100,
+            light,
+        ));
+        try scene.shapes.append(try Shape.new_infinite_plane(
+            alloc,
+            .{ .x = 0, .y = 0, .z = -1 },
+            -100,
+            light,
+        ));
+        try scene.shapes.append(try Shape.new_infinite_plane(
+            alloc,
+            .{ .x = 0, .y = -1, .z = 0 },
+            -100,
+            light,
+        ));
+        try scene.shapes.append(try Shape.new_infinite_plane(
+            alloc,
+            .{ .x = 1, .y = 0, .z = 0 },
+            -100,
+            light,
+        ));
+        try scene.shapes.append(try Shape.new_infinite_plane(
+            alloc,
+            .{ .x = -1, .y = 0, .z = 0 },
+            -100,
+            light,
+        ));
+        // Bottom wall
+        try scene.shapes.append(try Shape.new_infinite_plane(
+            alloc,
+            .{ .x = 0, .y = 1, .z = 0 },
+            -1,
+            blue,
+        ));
+        // Glass sphere
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 0.0, .y = -0.5, .z = -1 },
+            0.5,
+            glass,
+        ));
+        // Red sphere
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 1.25, .y = -0.5, .z = -1 },
+            0.5,
+            red,
+        ));
+
+        return scene;
+    }
+
     pub fn deinit(self: *Self) void {
         for (self.shapes.items) |s| {
             self.alloc.free(s.data);

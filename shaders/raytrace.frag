@@ -152,10 +152,16 @@ vec3 sanitize_dir(vec3 dir, vec3 norm) {
     }
 }
 
+vec3 my_refract(vec3 dir, vec3 norm, float etai_over_etat) {
+    float cos_theta = min(dot(-dir, norm), 1.0);
+    vec3 r_out_perp =  etai_over_etat * (dir + cos_theta*norm);
+    vec3 r_out_parallel = -sqrt(abs(1.0 - dot(r_out_perp, r_out_perp))) * norm;
+    return r_out_perp + r_out_parallel;
+}
+
 #define BOUNCES 6
 vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
     vec3 color = vec3(1);
-    float index = 1.0; // refractive index of current material
     for (uint i=0; i < BOUNCES; ++i) {
         // Walk to the next object in the scene
         pos = trace(pos, dir);
@@ -172,6 +178,8 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
         // Look at the material and decide whether to terminate
         vec4 mat = scene_data[uint(shape.z)];
         uint mat_type = uint(mat.x);
+        uint mat_offset; // only used in some materials
+
         switch (mat_type) {
             // When we hit a light, return immediately
             case MAT_LIGHT:
@@ -183,7 +191,7 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 dir = sanitize_dir(norm + rand3_sphere(seed), norm);
                 break;
             case MAT_METAL:
-                uint mat_offset = uint(mat.y);
+                mat_offset = uint(mat.y);
                 color *= scene_data[mat_offset].xyz;
                 dir -= norm * dot(norm, dir)*2;
                 float fuzz = scene_data[mat_offset].w;
@@ -195,13 +203,20 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                         dir = normalize(dir);
                     }
                 }
+                break;
             case MAT_GLASS:
-                // Entering the shape
-                if (dot(dir, norm) < 0) {
-                    dir = refract(dir, norm, 1.3);
-                } else {
-                    dir = refract(dir, -norm, 1/1.3);
+                // This doesn't support nested materials with different etas!
+                mat_offset = uint(mat.y);
+                float eta = scene_data[mat_offset].w;
+                // If we're exiting the shape, then tweak values
+                if (dot(dir, norm) > 0) {
+                    norm *= -1;
+                    eta = 1/eta;
                 }
+                vec3 next_dir = my_refract(dir, norm, eta);
+
+                // If we can't refract, then reflect instead
+                    dir = next_dir;
                 break;
         }
     }

@@ -155,11 +155,12 @@ vec3 sanitize_dir(vec3 dir, vec3 norm) {
 #define BOUNCES 6
 vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
     vec3 color = vec3(1);
+    float index = 1.0; // refractive index of current material
     for (uint i=0; i < BOUNCES; ++i) {
         // Walk to the next object in the scene
         pos = trace(pos, dir);
 
-        // If we escaped the world, then terminate
+        // If we escaped the world, then terminate immediately
         if (pos.w == 0) {
             return vec3(0);
         }
@@ -172,9 +173,11 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
         vec4 mat = scene_data[uint(shape.z)];
         uint mat_type = uint(mat.x);
         switch (mat_type) {
-            // Hit a light
+            // When we hit a light, return immediately
             case MAT_LIGHT:
                 return color * mat.yzw;
+
+            // Otherwise, handle the various material types
             case MAT_DIFFUSE:
                 color *= mat.yzw;
                 dir = sanitize_dir(norm + rand3_sphere(seed), norm);
@@ -186,7 +189,7 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 float fuzz = scene_data[mat_offset].w;
                 if (fuzz != 0) {
                     dir += rand3_sphere(seed) * fuzz;
-                    if (fuzz >= 0.9) {
+                    if (fuzz >= 0.99) {
                         dir = sanitize_dir(dir, norm);
                     } else {
                         dir = normalize(dir);

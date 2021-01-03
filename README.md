@@ -17,3 +17,5 @@ A tiny GPU raytracer!
 - Using [WebGPU](https://gpuweb.github.io/gpuweb/) for graphics
   via [`wgpu-native`](https://github.com/gfx-rs/wgpu-native)
 - Shaders compiled from GLSL to SPIR-V with [`shaderc`](https://github.com/google/shaderc)
+- Slightly based on [_Ray Tracing in One Weekend_](https://raytracing.github.io/books/RayTracingInOneWeekend.html),
+  but using a data-driven design to run on the GPU.

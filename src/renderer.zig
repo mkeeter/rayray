@@ -157,29 +157,39 @@ pub const Renderer = struct {
         c.wgpu_swap_chain_present(self.swap_chain);
     }
 
-    pub fn print_stats(self: *const Self) void {
-        var ray_count = @intCast(u64, self.uniforms.width_px) *
-            @intCast(u64, self.uniforms.height_px) *
-            @intCast(u64, self.uniforms.samples);
-        var prefix: u8 = ' ';
-        if (ray_count > 1_000_000_000) {
-            ray_count /= 1_000_000_000;
-            prefix = 'G';
-        } else if (ray_count > 1_000_000) {
-            ray_count /= 1_000_000;
-            prefix = 'M';
-        } else if (ray_count > 1_000) {
-            ray_count /= 1_000;
-            prefix = 'K';
+    fn prefix(v: *f64) u8 {
+        if (v.* > 1_000_000_000) {
+            v.* /= 1_000_000_000;
+            return 'G';
+        } else if (v.* > 1_000_000) {
+            v.* /= 1_000_000;
+            return 'M';
+        } else if (v.* > 1_000) {
+            v.* /= 1_000;
+            return 'K';
+        } else {
+            return ' ';
         }
+    }
+
+    pub fn print_stats(self: *const Self) void {
+        var ray_count = @intToFloat(f64, self.uniforms.width_px) *
+            @intToFloat(f64, self.uniforms.height_px) *
+            @intToFloat(f64, self.uniforms.samples);
 
         const dt_sec = @intToFloat(f64, std.time.milliTimestamp() - self.start_time_ms) / 1000.0;
-        std.debug.print("Rendered {} {c}rays in {d:.2} sec ({d:.2} {c}ray/sec)", .{
+
+        var rays_per_sec = ray_count / dt_sec;
+        var rays_per_sec_prefix = prefix(&rays_per_sec);
+
+        var ray_count_prefix = prefix(&ray_count);
+
+        std.debug.print("Rendered {d:.2} {c}rays in {d:.2} sec ({d:.2} {c}ray/sec)", .{
             ray_count,
-            prefix,
+            ray_count_prefix,
             dt_sec,
-            @intToFloat(f64, ray_count) / dt_sec,
-            prefix,
+            rays_per_sec,
+            rays_per_sec_prefix,
         });
     }
 

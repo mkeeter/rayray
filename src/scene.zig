@@ -276,19 +276,19 @@ pub const Scene = struct {
             -1,
             blue,
         ));
-        // Glass sphere
-        try scene.shapes.append(try Shape.new_sphere(
-            alloc,
-            .{ .x = 0.0, .y = -0.5, .z = -1 },
-            0.5,
-            glass,
-        ));
         // Red sphere
         try scene.shapes.append(try Shape.new_sphere(
             alloc,
             .{ .x = 1.25, .y = -0.5, .z = -1 },
             0.5,
             red,
+        ));
+        // Glass sphere
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 0.0, .y = -0.5, .z = -1 },
+            0.5,
+            glass,
         ));
 
         return scene;

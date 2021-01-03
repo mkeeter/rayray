@@ -73,10 +73,11 @@ float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     vec3 nearest = start + dir * d;
     float min_distance = length(center - nearest);
     if (min_distance < r) {
-        // Return the smallest positive intersection.  If we're inside the
+        // Return the smallest positive intersection, plus some margin so we
+        // don't get stuck against the surface.  If we're inside the
         // sphere, then this will be against a negative normal
         float q = sqrt(r*r - min_distance*min_distance);
-        if (d > q) {
+        if (d > q + 1e-6) {
             return d - q;
         } else {
             return d + q;
@@ -152,13 +153,6 @@ vec3 sanitize_dir(vec3 dir, vec3 norm) {
     }
 }
 
-vec3 my_refract(vec3 dir, vec3 norm, float etai_over_etat) {
-    float cos_theta = min(dot(-dir, norm), 1.0);
-    vec3 r_out_perp =  etai_over_etat * (dir + cos_theta*norm);
-    vec3 r_out_parallel = -sqrt(abs(1.0 - dot(r_out_perp, r_out_perp))) * norm;
-    return r_out_perp + r_out_parallel;
-}
-
 #define BOUNCES 6
 vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
     vec3 color = vec3(1);
@@ -208,15 +202,20 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 // This doesn't support nested materials with different etas!
                 mat_offset = uint(mat.y);
                 float eta = scene_data[mat_offset].w;
-                // If we're exiting the shape, then tweak values
-                if (dot(dir, norm) > 0) {
-                    norm *= -1;
-                    eta = 1/eta;
+                // If we're entering the shape, then tweak values
+                if (dot(dir, norm) < 0) {
+                    dir = refract(dir, norm, 1/eta);
+                } else {
+                    // Otherwise, we're exiting the shape and need to check
+                    // for total internal reflection
+                    vec3 next_dir = refract(dir, -norm, eta);
+                    // If we can't refract, then reflect instead
+                    if (next_dir == vec3(0)) {
+                        dir -= norm * dot(norm, dir)*2;
+                    } else {
+                        dir = next_dir;
+                    }
                 }
-                vec3 next_dir = my_refract(dir, norm, eta);
-
-                // If we can't refract, then reflect instead
-                    dir = next_dir;
                 break;
         }
     }

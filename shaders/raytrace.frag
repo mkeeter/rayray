@@ -116,9 +116,6 @@ vec4 trace(vec4 start, vec3 dir) {
     uint prev_shape = uint(start.w);
 
     for (uint i=1; i <= num_shapes; i += 1) {
-        if (i == prev_shape) {
-            continue;
-        }
         vec4 shape = scene_data[i];
         uint offset = uint(shape.y);
         float dist;
@@ -136,7 +133,7 @@ vec4 trace(vec4 start, vec3 dir) {
             default: // unimplemented shape
                 continue;
         }
-        if (dist > 0 && dist < best_dist) {
+        if (dist > 1e-6 && dist < best_dist) {
             best_dist = dist;
             best_hit = vec4(start.xyz + dir*dist, i);
         }

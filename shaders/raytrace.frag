@@ -194,9 +194,8 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 }
                 break;
         }
-
-        //return vec4(dir, 1);
     }
+    // If we couldn't reach a light in max bounces, return black
     return vec3(0);
 }
 

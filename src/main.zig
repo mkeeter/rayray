@@ -3,6 +3,7 @@ const std = @import("std");
 const c = @import("c.zig");
 const Window = @import("window.zig").Window;
 const Renderer = @import("renderer.zig").Renderer;
+const Options = @import("options.zig").Options;
 
 pub fn main() anyerror!void {
     var gp_alloc = std.heap.GeneralPurposeAllocator(.{}){};
@@ -13,8 +14,10 @@ pub fn main() anyerror!void {
         std.debug.panic("Could not initialize glfw", .{});
     }
 
+    const options = try Options.parse_args(alloc);
+
     var window = try Window.init(600, 600, "rayray");
-    var renderer = try Renderer.init(alloc, window);
+    var renderer = try Renderer.init(alloc, options, window);
     defer alloc.destroy(renderer);
     defer renderer.deinit();
 

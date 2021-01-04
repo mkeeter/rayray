@@ -7,6 +7,7 @@ const shaderc = @import("shaderc.zig");
 const Window = @import("window.zig").Window;
 const Blit = @import("blit.zig").Blit;
 const Raytrace = @import("raytrace.zig").Raytrace;
+const Options = @import("options.zig").Options;
 
 pub const Renderer = struct {
     const Self = @This();
@@ -26,7 +27,7 @@ pub const Renderer = struct {
 
     start_time_ms: i64,
 
-    pub fn init(alloc: *std.mem.Allocator, window: Window) !*Self {
+    pub fn init(alloc: *std.mem.Allocator, options: Options, window: Window) !*Self {
         // Extract the WGPU Surface from the platform-specific window
         const platform = builtin.os.tag;
         const surface = if (platform == .macos) surf: {
@@ -107,7 +108,7 @@ pub const Renderer = struct {
                 .width_px = width,
                 .height_px = height,
                 .samples = 0,
-                .samples_per_frame = 1,
+                .samples_per_frame = options.samples_per_frame,
             },
             .uniform_buf = uniform_buf,
 

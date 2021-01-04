@@ -11,6 +11,9 @@ layout(set=0, binding=1) buffer Scene {
     vec4[] scene_data;
 };
 
+#define SURFACE_EPSILON 1e-6
+#define NORMAL_EPSILON  1e-8
+
 ////////////////////////////////////////////////////////////////////////////////
 // Jenkins hash function, specialized for a uint key
 uint32_t hash(uint key) {
@@ -50,7 +53,7 @@ vec3 rand3(inout uint seed) {
 vec3 rand3_sphere(inout uint seed) {
     while (true) {
         vec3 v = rand3(seed)*2 - 1;
-        if (length(v) <= 1.0 && length(v) > 1e-8) {
+        if (length(v) <= 1.0 && length(v) > NORMAL_EPSILON) {
             return normalize(v);
         }
         seed++;
@@ -77,7 +80,7 @@ float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
         // don't get stuck against the surface.  If we're inside the
         // sphere, then this will be against a negative normal
         float q = sqrt(r*r - min_distance*min_distance);
-        if (d > q + 1e-6) {
+        if (d > q + SURFACE_EPSILON) {
             return d - q;
         } else {
             return d + q;
@@ -134,7 +137,7 @@ vec4 trace(vec4 start, vec3 dir) {
             default: // unimplemented shape
                 continue;
         }
-        if (dist > 1e-6 && dist < best_dist) {
+        if (dist > SURFACE_EPSILON && dist < best_dist) {
             best_dist = dist;
             best_hit = vec4(start.xyz + dir*dist, i);
         }
@@ -146,7 +149,7 @@ vec4 trace(vec4 start, vec3 dir) {
 // Normalize, snapping to the normal if the vector is pathologically short
 vec3 sanitize_dir(vec3 dir, vec3 norm) {
     float len = length(dir);
-    if (len < 1e-8) {
+    if (len < NORMAL_EPSILON) {
         return norm;
     } else {
         return dir / len;

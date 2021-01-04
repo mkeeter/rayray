@@ -26,6 +26,7 @@ pub const Renderer = struct {
     uniform_buf: c.WGPUBufferId,
 
     start_time_ms: i64,
+    frame: u64,
 
     pub fn init(alloc: *std.mem.Allocator, options: Options, window: Window) !*Self {
         // Extract the WGPU Surface from the platform-specific window
@@ -113,6 +114,7 @@ pub const Renderer = struct {
             .uniform_buf = uniform_buf,
 
             .start_time_ms = std.time.milliTimestamp(),
+            .frame = 0,
         };
 
         window.set_callbacks(
@@ -137,9 +139,15 @@ pub const Renderer = struct {
     pub fn redraw(self: *Self) void {
         self.update_uniforms();
 
+        if (@mod(self.frame, 10) == 0) {
+            std.debug.print("\r", .{});
+            self.print_stats();
+        }
+
         // Cast another set of rays, one per pixel
         self.raytrace.draw(self.uniforms.samples == 0);
         self.uniforms.samples += self.uniforms.samples_per_frame;
+        self.frame += 1;
 
         // Begin the main render operation
         const next_texture = c.wgpu_swap_chain_get_next_texture(self.swap_chain);
@@ -185,13 +193,19 @@ pub const Renderer = struct {
 
         var ray_count_prefix = prefix(&ray_count);
 
-        std.debug.print("Rendered {d:.2} {c}rays in {d:.2} sec ({d:.2} {c}ray/sec)", .{
-            ray_count,
-            ray_count_prefix,
-            dt_sec,
-            rays_per_sec,
-            rays_per_sec_prefix,
-        });
+        std.debug.print(
+            "Rendered {d:.2} {c}rays in {d:.2} sec ({d:.2} {c}ray/sec, {} rays/pixel at {} x {})        ",
+            .{
+                ray_count,
+                ray_count_prefix,
+                dt_sec,
+                rays_per_sec,
+                rays_per_sec_prefix,
+                self.uniforms.samples,
+                self.uniforms.width_px,
+                self.uniforms.height_px,
+            },
+        );
     }
 
     pub fn run(self: *Self) !void {

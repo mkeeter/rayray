@@ -244,20 +244,52 @@ pub const Scene = struct {
         const ground_material = try scene.new_material(
             try Material.new_diffuse(alloc, 0.5, 0.5, 0.5),
         );
-        try scene.shapes.append(try Shape.new_infinite_plane(
+        try scene.shapes.append(try Shape.new_sphere(
             alloc,
-            .{ .x = 0, .y = 0, .z = 1 },
-            -1,
+            .{ .x = 0, .y = -1000, .z = 0 },
+            1000,
             ground_material,
         ));
-        var a: i32 = -10;
-        while (a <= 10) : (a += 1) {
-            var b: i32 = -10;
-            while (b <= 10) : (b += 1) {
-                const x = @intToFloat(f32, a) + 0.9 * r.random.float(f32);
-                const y = @intToFloat(f32, b) + 0.9 * r.random.float(f32);
+        var a: i32 = -11;
+        while (a < 11) : (a += 1) {
+            var b: i32 = -11;
+            while (b < 11) : (b += 1) {
+                const x = @intToFloat(f32, a) + 0.7 * r.random.float(f32);
+                const y: f32 = 0.18;
+                const z = @intToFloat(f32, b) + 0.7 * r.random.float(f32);
 
-                const choose_mat = r.random.float(f32);
+                const da = std.math.sqrt(std.math.pow(f32, x - 4, 2) +
+                    std.math.pow(f32, z, 2));
+                const db = std.math.sqrt(std.math.pow(f32, x, 2) +
+                    std.math.pow(f32, z, 2));
+                const dc = std.math.sqrt(std.math.pow(f32, x + 4, 2) +
+                    std.math.pow(f32, z, 2));
+
+                if (da > 1.1 and db > 1.1 and dc > 1.1) {
+                    const choose_mat = r.random.float(f32);
+                    var mat: u32 = undefined;
+                    if (choose_mat < 0.8) {
+                        const red = r.random.float(f32);
+                        const green = r.random.float(f32);
+                        const blue = r.random.float(f32);
+                        mat = try scene.new_material(
+                            try Material.new_diffuse(alloc, red, green, blue),
+                        );
+                    } else if (choose_mat < 0.95) {
+                        const red = r.random.float(f32) / 2 + 1;
+                        const green = r.random.float(f32) / 2 + 1;
+                        const blue = r.random.float(f32) / 2 + 1;
+                        const fuzz = r.random.float(f32) / 2;
+                        mat = try scene.new_material(
+                            try Material.new_metal(alloc, red, green, blue, fuzz),
+                        );
+                    } else {
+                        mat = try scene.new_material(
+                            try Material.new_glass(alloc, 1, 1, 1, 1.5),
+                        );
+                    }
+                    try scene.shapes.append(try Shape.new_sphere(alloc, .{ .x = x, .y = y, .z = z }, 0.2, mat));
+                }
             }
         }
 
@@ -269,20 +301,28 @@ pub const Scene = struct {
             glass,
         ));
 
-        const metal = try scene.new_material(try Material.new_metal(alloc, 0.7, 0.6, 0.5, 0.1));
+        const diffuse = try scene.new_material(try Material.new_diffuse(alloc, 0.4, 0.2, 0.1));
         try scene.shapes.append(try Shape.new_sphere(
             alloc,
             .{ .x = -4, .y = 1, .z = 0 },
             1,
-            metal,
+            diffuse,
         ));
 
-        const light = try scene.new_material(try Material.new_light(alloc, 4, 4, 4));
+        const metal = try scene.new_material(try Material.new_metal(alloc, 0.7, 0.6, 0.5, 0.0));
         try scene.shapes.append(try Shape.new_sphere(
             alloc,
             .{ .x = 4, .y = 1, .z = 0 },
             1,
             metal,
+        ));
+
+        const light = try scene.new_material(try Material.new_light(alloc, 0.8, 0.95, 1));
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 0, .y = 0, .z = 0 },
+            2000,
+            light,
         ));
 
         return scene;

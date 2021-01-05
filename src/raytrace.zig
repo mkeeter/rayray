@@ -5,7 +5,10 @@ const shaderc = @import("shaderc.zig");
 
 const Scene = @import("scene.zig").Scene;
 
+// Assume each shape has a material, and both the shape and the material
+// require one slot of extra data.
 const MAX_SHAPES: usize = 512;
+const MAX_SLOTS: usize = MAX_SHAPES * 4;
 
 pub const Raytrace = struct {
     const Self = @This();
@@ -62,7 +65,7 @@ pub const Raytrace = struct {
             device,
             &(c.WGPUBufferDescriptor){
                 .label = "raytrace scene",
-                .size = @sizeOf(c.vec4) * MAX_SHAPES,
+                .size = @sizeOf(c.vec4) * MAX_SLOTS,
                 .usage = c.WGPUBufferUsage_STORAGE | c.WGPUBufferUsage_COPY_DST,
                 .mapped_at_creation = false,
             },
@@ -138,7 +141,7 @@ pub const Raytrace = struct {
                 .binding = 1,
                 .buffer = scene_buffer,
                 .offset = 0,
-                .size = @sizeOf(c.vec4) * MAX_SHAPES,
+                .size = @sizeOf(c.vec4) * MAX_SLOTS,
 
                 .sampler = 0, // None
                 .texture_view = 0, // None

@@ -111,16 +111,22 @@ pub const Renderer = struct {
                 .samples = 0,
                 .samples_per_frame = options.samples_per_frame,
 
-                .camera_pos = .{ .x = 0, .y = 0, .z = 1 },
-                .camera_target = .{ .x = 0, .y = 0, .z = 0.5 },
+                //.camera_pos = .{ .x = 0, .y = 0, .z = 1 },
+                //.camera_target = .{ .x = 0, .y = 0, .z = 0.5 },
+                //.camera_up = .{ .x = 0, .y = 1, .z = 0 },
+                //.camera_scale = 1,
+                //.camera_defocus = 0.02,
+                //.camera_perspective = 0.3,
+                .camera_pos = .{ .x = 8, .y = 1.5, .z = 2 },
+                .camera_target = .{ .x = 0, .y = 0, .z = 0 },
                 .camera_up = .{ .x = 0, .y = 1, .z = 0 },
                 .camera_scale = 1,
-                .camera_defocus = 0.02,
-                .camera_perspective = 0.3,
+                .camera_defocus = 0.04,
+                .camera_perspective = 0.4,
             },
             .uniform_buf = uniform_buf,
 
-            .start_time_ms = std.time.milliTimestamp(),
+            .start_time_ms = 0,
             .frame = 0,
         };
 

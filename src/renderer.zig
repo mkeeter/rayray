@@ -112,8 +112,8 @@ pub const Renderer = struct {
                 .samples_per_frame = options.samples_per_frame,
 
                 .perspective = 0.3,
-                .focal_distance = 0,
-                .defocus = 0.,
+                .focal_distance = 0.5,
+                .defocus = 0.02,
             },
             .uniform_buf = uniform_buf,
 

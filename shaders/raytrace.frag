@@ -49,12 +49,27 @@ vec3 rand3(inout uint seed) {
     return vec3(rand(seed), rand(seed), rand(seed));
 }
 
-// Returns a coordinate uniformly distributed on a sphere
-vec3 rand3_sphere(inout uint seed) {
+vec2 rand2(inout uint seed) {
+    return vec2(rand(seed), rand(seed));
+}
+
+// Returns a coordinate uniformly distributed on a sphere's surface
+vec3 rand3_on_sphere(inout uint seed) {
     while (true) {
         vec3 v = rand3(seed)*2 - 1;
         if (length(v) <= 1.0 && length(v) > NORMAL_EPSILON) {
             return normalize(v);
+        }
+        seed++;
+    }
+}
+
+// Returns a coordinate uniformly distributed in a circle of radius 1
+vec2 rand2_in_circle(inout uint seed) {
+    while (true) {
+        vec2 v = rand2(seed)*2 - 1;
+        if (length(v) <= 1.0) {
+            return v;
         }
         seed++;
     }
@@ -185,7 +200,7 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
             // Otherwise, handle the various material types
             case MAT_DIFFUSE:
                 color *= mat.yzw;
-                dir = sanitize_dir(norm + rand3_sphere(seed), norm);
+                dir = sanitize_dir(norm + rand3_on_sphere(seed), norm);
                 break;
             case MAT_METAL:
                 mat_offset = uint(mat.y);
@@ -193,7 +208,7 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 dir -= norm * dot(norm, dir)*2;
                 float fuzz = scene_data[mat_offset].w;
                 if (fuzz != 0) {
-                    dir += rand3_sphere(seed) * fuzz;
+                    dir += rand3_on_sphere(seed) * fuzz;
                     if (fuzz >= 0.99) {
                         dir = sanitize_dir(dir, norm);
                     } else {
@@ -249,14 +264,24 @@ void main() {
 
     for (uint i=0; i < u.samples_per_frame; ++i) {
         // Add anti-aliasing by jittering within the pixel
-        float dx = rand(seed);
-        float dy = rand(seed);
+        float dx = rand(seed) - 0.5;
+        float dy = rand(seed) - 0.5;
 
         vec2 pixel_pos = gl_FragCoord.xy + vec2(dx, dy);
         vec2 xy = 2*pixel_pos / vec2(u.width_px, u.height_px) - 1;
 
         vec4 start = vec4(xy, 1, 0);
         vec3 dir = normalize(vec3(xy * u.perspective, -1));
+
+        // First, pick a target on the focal plane.
+        // (This ends up with a curved focal plane, but that's fine)
+        vec3 target = start.xyz + dir * u.focal_distance;
+
+        // Then, jitter the XY start position by the defocus amount
+        start += vec4(u.defocus * rand2_in_circle(seed), 0, 0);
+
+        // Finally, readjust the direction so that we hit the same target
+        dir = normalize(target - start.xyz);
 
         fragColor += vec4(bounce(start, dir, seed), 1);
     }

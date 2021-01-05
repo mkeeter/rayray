@@ -105,12 +105,26 @@ pub const Scene = struct {
     alloc: *std.mem.Allocator,
     shapes: std.ArrayList(Shape),
     materials: std.ArrayList(Material),
+    camera: c.rayCamera,
 
-    fn new(alloc: *std.mem.Allocator) Self {
+    fn new(alloc: *std.mem.Allocator, camera: c.rayCamera) Self {
         return Scene{
             .alloc = alloc,
             .shapes = std.ArrayList(Shape).init(alloc),
             .materials = std.ArrayList(Material).init(alloc),
+            .camera = camera,
+        };
+    }
+
+    fn default_camera() c.rayCamera {
+        return .{
+            .pos = .{ .x = 8, .y = 1.5, .z = 2 },
+            .target = .{ .x = 0, .y = 0, .z = 0 },
+            .up = .{ .x = 0, .y = 1, .z = 0 },
+            .scale = 1,
+            .defocus = 0.03,
+            .perspective = 0.4,
+            .focal_distance = 4.0,
         };
     }
 
@@ -120,7 +134,7 @@ pub const Scene = struct {
     }
 
     pub fn new_simple_scene(alloc: *std.mem.Allocator) !Self {
-        var scene = new(alloc);
+        var scene = new(alloc, default_camera());
         const white = try scene.new_material(try Material.new_diffuse(alloc, 1, 1, 1));
         const red = try scene.new_material(try Material.new_diffuse(alloc, 1, 0.2, 0.2));
         const light = try scene.new_material(try Material.new_light(alloc, 1, 1, 1));
@@ -148,7 +162,7 @@ pub const Scene = struct {
     }
 
     pub fn new_cornell_box(alloc: *std.mem.Allocator) !Self {
-        var scene = new(alloc);
+        var scene = new(alloc, default_camera());
         const white = try scene.new_material(try Material.new_diffuse(alloc, 1, 1, 1));
         const red = try scene.new_material(try Material.new_diffuse(alloc, 1, 0.1, 0.1));
         const blue = try scene.new_material(try Material.new_diffuse(alloc, 0.1, 0.1, 1));
@@ -239,7 +253,15 @@ pub const Scene = struct {
 
         var r = std.rand.DefaultPrng.init(seed);
 
-        var scene = new(alloc);
+        var scene = new(alloc, .{
+            .pos = .{ .x = 8, .y = 1.5, .z = 2 },
+            .target = .{ .x = 0, .y = 0, .z = 0 },
+            .up = .{ .x = 0, .y = 1, .z = 0 },
+            .scale = 1,
+            .defocus = 0.03,
+            .perspective = 0.4,
+            .focal_distance = 4.0,
+        });
 
         const ground_material = try scene.new_material(
             try Material.new_diffuse(alloc, 0.5, 0.5, 0.5),

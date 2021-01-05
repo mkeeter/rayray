@@ -25,6 +25,8 @@ pub const Raytrace = struct {
     scene_buffer: c.WGPUBufferId,
     render_pipeline: c.WGPURenderPipelineId,
 
+    scene: Scene,
+
     pub fn init(
         alloc: *std.mem.Allocator,
         device: c.WGPUDeviceId,
@@ -73,7 +75,6 @@ pub const Raytrace = struct {
 
         // Upload a flattened scene representation to the scene buffer
         var scene = try Scene.new_rtiow(alloc);
-        defer scene.deinit();
 
         const encoded = try scene.encode();
         defer alloc.free(encoded);
@@ -228,6 +229,7 @@ pub const Raytrace = struct {
             .tex_view = undefined,
 
             .render_pipeline = render_pipeline,
+            .scene = scene,
         };
         out.resize_(width, height);
         return out;
@@ -250,6 +252,7 @@ pub const Raytrace = struct {
 
     pub fn deinit(self: *Self) void {
         self.destroy_textures();
+        self.scene.deinit();
 
         c.wgpu_bind_group_destroy(self.bind_group);
         c.wgpu_buffer_destroy(self.scene_buffer);

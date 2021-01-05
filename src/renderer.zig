@@ -121,8 +121,9 @@ pub const Renderer = struct {
                 .camera_target = .{ .x = 0, .y = 0, .z = 0 },
                 .camera_up = .{ .x = 0, .y = 1, .z = 0 },
                 .camera_scale = 1,
-                .camera_defocus = 0.04,
+                .camera_defocus = 0.03,
                 .camera_perspective = 0.4,
+                .camera_focal_distance = 4.0,
             },
             .uniform_buf = uniform_buf,
 

@@ -51,6 +51,7 @@ struct rayUniforms {
     float camera_defocus; // Amount to jitter ray origins
     vec3 camera_up;
     float camera_perspective;
+    float camera_focal_distance;
 
     // These go after the vec4s to ensure proper alignment
 };

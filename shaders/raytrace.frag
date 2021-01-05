@@ -268,7 +268,6 @@ void main() {
     // without any bias due to perspective
     const vec3 camera_delta = u.camera_target - u.camera_pos;
     const vec3 camera_dir = normalize(camera_delta);
-    const float focal_distance = length(camera_delta);
 
     // Build an orthonormal frame for the camera
     const vec3 camera_dx = cross(camera_dir, u.camera_up);
@@ -293,7 +292,7 @@ void main() {
 
         // First, pick a target on the focal plane.
         // (This ends up with a curved focal plane, but that's fine)
-        vec3 target = start + dir * focal_distance;
+        vec3 target = start + dir * u.camera_focal_distance;
 
         // Then, jitter the start position by the defocus amount
         vec2 defocus = u.camera_defocus * rand2_in_circle(seed);

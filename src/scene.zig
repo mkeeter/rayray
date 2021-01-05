@@ -231,6 +231,63 @@ pub const Scene = struct {
         return scene;
     }
 
+    pub fn new_rtiow(alloc: *std.mem.Allocator) !Self {
+        // Initialize the RNG
+        var buf: [8]u8 = undefined;
+        try std.os.getrandom(buf[0..]);
+        const seed = std.mem.readIntLittle(u64, buf[0..8]);
+
+        var r = std.rand.DefaultPrng.init(seed);
+
+        var scene = new(alloc);
+
+        const ground_material = try scene.new_material(
+            try Material.new_diffuse(alloc, 0.5, 0.5, 0.5),
+        );
+        try scene.shapes.append(try Shape.new_infinite_plane(
+            alloc,
+            .{ .x = 0, .y = 0, .z = 1 },
+            -1,
+            ground_material,
+        ));
+        var a: i32 = -10;
+        while (a <= 10) : (a += 1) {
+            var b: i32 = -10;
+            while (b <= 10) : (b += 1) {
+                const x = @intToFloat(f32, a) + 0.9 * r.random.float(f32);
+                const y = @intToFloat(f32, b) + 0.9 * r.random.float(f32);
+
+                const choose_mat = r.random.float(f32);
+            }
+        }
+
+        const glass = try scene.new_material(try Material.new_glass(alloc, 1, 1, 1, 1.5));
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 0, .y = 1, .z = 0 },
+            1,
+            glass,
+        ));
+
+        const metal = try scene.new_material(try Material.new_metal(alloc, 0.7, 0.6, 0.5, 0.1));
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = -4, .y = 1, .z = 0 },
+            1,
+            metal,
+        ));
+
+        const light = try scene.new_material(try Material.new_light(alloc, 4, 4, 4));
+        try scene.shapes.append(try Shape.new_sphere(
+            alloc,
+            .{ .x = 4, .y = 1, .z = 0 },
+            1,
+            metal,
+        ));
+
+        return scene;
+    }
+
     pub fn new_horizon(alloc: *std.mem.Allocator) !Self {
         var scene = new(alloc);
         const blue = try scene.new_material(try Material.new_diffuse(alloc, 0.5, 0.5, 1));

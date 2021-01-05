@@ -266,11 +266,11 @@ void main() {
 
     // This is the ray direction from the center of the camera,
     // without any bias due to perspective
-    const vec3 camera_delta = u.camera_target - u.camera_pos;
+    const vec3 camera_delta = u.camera.target - u.camera.pos;
     const vec3 camera_dir = normalize(camera_delta);
 
     // Build an orthonormal frame for the camera
-    const vec3 camera_dx = cross(camera_dir, u.camera_up);
+    const vec3 camera_dx = cross(camera_dir, u.camera.up);
     const vec3 camera_dy = -cross(camera_dir, camera_dx);
     const mat3 camera_mat = mat3(camera_dx, camera_dy, camera_dir);
 
@@ -287,15 +287,15 @@ void main() {
         // then use this offset for both the start of the ray and for the
         // ray direction change due to perspective
         vec3 offset = camera_mat * vec3(pixel_xy, 0);
-        vec3 start = u.camera_pos + u.camera_scale * offset;
-        vec3 dir = normalize(camera_dir + u.camera_perspective * offset);
+        vec3 start = u.camera.pos + u.camera.scale * offset;
+        vec3 dir = normalize(camera_dir + u.camera.perspective * offset);
 
         // First, pick a target on the focal plane.
         // (This ends up with a curved focal plane, but that's fine)
-        vec3 target = start + dir * u.camera_focal_distance;
+        vec3 target = start + dir * u.camera.focal_distance;
 
         // Then, jitter the start position by the defocus amount
-        vec2 defocus = u.camera_defocus * rand2_in_circle(seed);
+        vec2 defocus = u.camera.defocus * rand2_in_circle(seed);
         start += camera_mat * vec3(defocus, 0);
 
         // Finally, re-adjust the direction so that we hit the same target

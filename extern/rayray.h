@@ -33,6 +33,19 @@ typedef struct {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+struct rayCamera {
+    // Order matters here: we alternate between vec3 and float because a vec3
+    // has a minimum alignment of 4, so this ensures that the CPU and GPU both
+    // pack the struct correctly
+    vec3 pos;
+    float scale; // Half-size of sensor at camera_pos
+    vec3 target;
+    float defocus; // Amount to jitter ray origins
+    vec3 up;
+    float perspective;
+    float focal_distance;
+};
+
 struct rayUniforms {
     uint32_t width_px;
     uint32_t height_px;
@@ -41,17 +54,5 @@ struct rayUniforms {
     uint32_t samples_per_frame; // Loop in the fragment shader on faster GPUs
 
     // Camera parameters!
-    //
-    // Order matters here: we alternate between vec3 and float because a vec3
-    // has a minimum alignment of 4, so this ensures that the CPU and GPU both
-    // pack the struct correctly
-    vec3 camera_pos;
-    float camera_scale; // Half-size of sensor at camera_pos
-    vec3 camera_target;
-    float camera_defocus; // Amount to jitter ray origins
-    vec3 camera_up;
-    float camera_perspective;
-    float camera_focal_distance;
-
-    // These go after the vec4s to ensure proper alignment
+    MEMBER_STRUCT rayCamera camera;
 };

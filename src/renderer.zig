@@ -110,6 +110,10 @@ pub const Renderer = struct {
                 .height_px = height,
                 .samples = 0,
                 .samples_per_frame = options.samples_per_frame,
+
+                .perspective = 0.3,
+                .focal_distance = 0,
+                .defocus = 0.,
             },
             .uniform_buf = uniform_buf,
 

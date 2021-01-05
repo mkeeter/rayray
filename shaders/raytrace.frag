@@ -256,12 +256,7 @@ void main() {
         vec2 xy = 2*pixel_pos / vec2(u.width_px, u.height_px) - 1;
 
         vec4 start = vec4(xy, 1, 0);
-#define USE_PERSPECTIVE 1
-#if USE_PERSPECTIVE
-        vec3 dir = normalize(vec3(xy/3, -1));
-#else
-        vec3 dir = vec3(0, 0, -1);
-#endif
+        vec3 dir = normalize(vec3(xy * u.perspective, -1));
 
         fragColor += vec4(bounce(start, dir, seed), 1);
     }

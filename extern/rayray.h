@@ -36,6 +36,11 @@ typedef struct {
 struct rayUniforms {
     uint32_t width_px;
     uint32_t height_px;
-    uint32_t samples;
-    uint32_t samples_per_frame;
+
+    uint32_t samples; // Used to scale brightness
+    uint32_t samples_per_frame; // Loop in the fragment shader on faster GPUs
+
+    float perspective; // How much perspective to apply
+    float focal_distance; // Distance to the point of perfect focus
+    float defocus;  // Amount to jitter ray sources
 };

@@ -160,7 +160,7 @@ pub const Scene = struct {
         // Light
         try scene.shapes.append(try Shape.new_sphere(
             alloc,
-            .{ .x = 0, .y = 6, .z = 0 },
+            .{ .x = 0, .y = 6.05, .z = 0 },
             5.02,
             light,
         ));
@@ -189,7 +189,7 @@ pub const Scene = struct {
         try scene.shapes.append(try Shape.new_infinite_plane(
             alloc,
             .{ .x = 0, .y = -1, .z = 0 },
-            -1,
+            -1.05,
             white,
         ));
         // Bottom wall

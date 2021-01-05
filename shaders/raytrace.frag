@@ -41,7 +41,7 @@ float rand(inout uint seed) {
     m &= ieeeMantissa;                     // Keep only mantissa bits (fractional part)
     m |= ieeeOne;                          // Add fractional part to 1.0
 
-    float  f = uintBitsToFloat(m);          // Range [1:2]
+    float  f = uintBitsToFloat(m);         // Range [1:2]
     return f - 1.0;                        // Range [0:1]
 }
 
@@ -195,10 +195,12 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
         switch (mat_type) {
             // When we hit a light, return immediately
             case MAT_LIGHT:
+                // Light color is tightly packed in the yzw terms
                 return color * mat.yzw;
 
             // Otherwise, handle the various material types
             case MAT_DIFFUSE:
+                // Diffuse color is tightly packed in the yzw terms
                 color *= mat.yzw;
                 dir = sanitize_dir(norm + rand3_on_sphere(seed), norm);
                 break;

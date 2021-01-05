@@ -22,7 +22,4 @@ pub fn main() anyerror!void {
     defer renderer.deinit();
 
     try renderer.run();
-    std.debug.print("\r", .{});
-    renderer.print_stats();
-    std.debug.print("\n", .{});
 }

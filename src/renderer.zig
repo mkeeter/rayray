@@ -146,7 +146,11 @@ pub const Renderer = struct {
     pub fn redraw(self: *Self) void {
         self.update_uniforms();
 
-        if (@mod(self.frame, 10) == 0) {
+        // Record the start time at the first frame, to skip startup time
+        if (self.uniforms.samples == 0) {
+            self.start_time_ms = std.time.milliTimestamp();
+        } else if (@mod(self.frame, 10) == 0) {
+            // Print stats occasionally
             std.debug.print("\r", .{});
             self.print_stats();
         }
@@ -220,6 +224,7 @@ pub const Renderer = struct {
             self.redraw();
             c.glfwPollEvents();
         }
+        std.debug.print("\n", .{});
     }
 
     pub fn deinit(self: *Self) void {

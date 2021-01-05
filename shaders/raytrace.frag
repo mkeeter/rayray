@@ -262,27 +262,45 @@ void main() {
                                           ^ floatBitsToUint(gl_FragCoord.y));
     fragColor = vec4(0);
 
+    // This is the ray direction from the center of the camera,
+    // without any bias due to perspective
+    const vec3 camera_delta = u.camera_target - u.camera_pos;
+    const vec3 camera_dir = normalize(camera_delta);
+    const float focal_distance = length(camera_delta);
+
+    // Build an orthonormal frame for the camera
+    const vec3 camera_dx = cross(camera_dir, u.camera_up);
+    const vec3 camera_dy = -cross(camera_dir, camera_dx);
+    const mat3 camera_mat = mat3(camera_dx, camera_dy, camera_dir);
+
     for (uint i=0; i < u.samples_per_frame; ++i) {
         // Add anti-aliasing by jittering within the pixel
-        float dx = rand(seed) - 0.5;
-        float dy = rand(seed) - 0.5;
+        float pixel_dx = rand(seed) - 0.5;
+        float pixel_dy = rand(seed) - 0.5;
 
-        vec2 pixel_pos = gl_FragCoord.xy + vec2(dx, dy);
-        vec2 xy = 2*pixel_pos / vec2(u.width_px, u.height_px) - 1;
+        // Pixel position as a normalized [-1,1] value, with antialiasing
+        vec2 pixel_xy = (gl_FragCoord.xy + vec2(pixel_dx, pixel_dy)) /
+                         vec2(u.width_px, u.height_px) * 2 - 1;
 
-        vec4 start = vec4(xy, 1, 0);
-        vec3 dir = normalize(vec3(xy * u.perspective, -1));
+        // Calculate the offset from camera center for this pixel, in 3D space,
+        // then use this offset for both the start of the ray and for the
+        // ray direction change due to perspective
+        vec3 offset = camera_mat * vec3(pixel_xy, 0);
+        vec3 start = u.camera_pos + u.camera_scale * offset;
+        vec3 dir = normalize(camera_dir + u.camera_perspective * offset);
 
         // First, pick a target on the focal plane.
         // (This ends up with a curved focal plane, but that's fine)
-        vec3 target = start.xyz + dir * u.focal_distance;
+        vec3 target = start + dir * focal_distance;
 
-        // Then, jitter the XY start position by the defocus amount
-        start += vec4(u.defocus * rand2_in_circle(seed), 0, 0);
+        // Then, jitter the start position by the defocus amount
+        vec2 defocus = u.camera_defocus * rand2_in_circle(seed);
+        start += camera_mat * vec3(defocus, 0);
 
-        // Finally, readjust the direction so that we hit the same target
-        dir = normalize(target - start.xyz);
+        // Finally, re-adjust the direction so that we hit the same target
+        dir = normalize(target - start);
 
-        fragColor += vec4(bounce(start, dir, seed), 1);
+        // Actually do the raytracing here, accumulating color
+        fragColor += vec4(bounce(vec4(start, 0), dir, seed), 1);
     }
 }

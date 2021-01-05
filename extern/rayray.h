@@ -40,7 +40,17 @@ struct rayUniforms {
     uint32_t samples; // Used to scale brightness
     uint32_t samples_per_frame; // Loop in the fragment shader on faster GPUs
 
-    float perspective; // How much perspective to apply
-    float focal_distance; // Distance to the point of perfect focus
-    float defocus;  // Amount to jitter ray sources
+    // Camera parameters!
+    //
+    // Order matters here: we alternate between vec3 and float because a vec3
+    // has a minimum alignment of 4, so this ensures that the CPU and GPU both
+    // pack the struct correctly
+    vec3 camera_pos;
+    float camera_scale; // Half-size of sensor at camera_pos
+    vec3 camera_target;
+    float camera_defocus; // Amount to jitter ray origins
+    vec3 camera_up;
+    float camera_perspective;
+
+    // These go after the vec4s to ensure proper alignment
 };

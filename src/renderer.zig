@@ -111,9 +111,12 @@ pub const Renderer = struct {
                 .samples = 0,
                 .samples_per_frame = options.samples_per_frame,
 
-                .perspective = 0.3,
-                .focal_distance = 0.5,
-                .defocus = 0.02,
+                .camera_pos = .{ .x = 0, .y = 0, .z = 1 },
+                .camera_target = .{ .x = 0, .y = 0, .z = 0.5 },
+                .camera_up = .{ .x = 0, .y = 1, .z = 0 },
+                .camera_scale = 1,
+                .camera_defocus = 0.02,
+                .camera_perspective = 0.3,
             },
             .uniform_buf = uniform_buf,
 

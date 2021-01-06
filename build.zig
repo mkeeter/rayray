@@ -27,9 +27,20 @@ pub fn build(b: *Builder) void {
     exe.linkSystemLibrary("shaderc_combined");
     exe.addIncludeDir("vendor/shaderc/include/");
 
-    exe.addIncludeDir("."); // for "extern/futureproof.h"
+    exe.addIncludeDir("."); // for "extern/rayray.h"
 
-    // This must come before the install_name_tool call below
+    const c_args = [_][]const u8{
+        "-O3",
+    };
+    const imgui_files = [_][]const u8{
+        "vendor/cimgui/cimgui.cpp",
+        "vendor/cimgui/imgui/imgui.cpp",
+        "vendor/cimgui/imgui/imgui_draw.cpp",
+        "vendor/cimgui/imgui/imgui_demo.cpp",
+        "vendor/cimgui/imgui/imgui_widgets.cpp",
+    };
+    exe.addCSourceFiles(&imgui_files, &c_args);
+
     exe.install();
 
     if (exe.target.isDarwin()) {

@@ -16,3 +16,6 @@ shaderc:
 	tar -xvzf ${SHADERC}
 	rm ${SHADERC}
 	mv install shaderc
+
+imgui:
+	git submodule update --init --recursive

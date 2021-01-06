@@ -4,15 +4,12 @@ const std = @import("std");
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
 
-const Window = @import("window.zig").Window;
 const Blit = @import("blit.zig").Blit;
 const Raytrace = @import("raytrace.zig").Raytrace;
 const Options = @import("options.zig").Options;
 
 pub const Renderer = struct {
     const Self = @This();
-
-    window: Window,
 
     device: c.WGPUDeviceId,
     surface: c.WGPUSurfaceId,
@@ -28,7 +25,7 @@ pub const Renderer = struct {
     start_time_ms: i64,
     frame: u64,
 
-    pub fn init(alloc: *std.mem.Allocator, options: Options, window: Window) !*Self {
+    pub fn init(alloc: *std.mem.Allocator, options: Options, window: *c.GLFWwindow) !Self {
         // Extract the WGPU Surface from the platform-specific window
         const platform = builtin.os.tag;
         const surface = if (platform == .macos) surf: {
@@ -39,7 +36,7 @@ pub const Renderer = struct {
             const objc = @import("objc.zig");
             const darwin = @import("darwin.zig");
 
-            const cocoa_window = darwin.glfwGetCocoaWindow(window.window);
+            const cocoa_window = darwin.glfwGetCocoaWindow(window);
             const ns_window = @ptrCast(c.id, @alignCast(8, cocoa_window));
 
             const cv = objc.call(ns_window, "contentView");
@@ -75,7 +72,7 @@ pub const Renderer = struct {
 
         var width_: c_int = undefined;
         var height_: c_int = undefined;
-        c.glfwGetFramebufferSize(window.window, &width_, &height_);
+        c.glfwGetFramebufferSize(window, &width_, &height_);
         const width = @intCast(u32, width_);
         const height = @intCast(u32, height_);
 
@@ -94,9 +91,7 @@ pub const Renderer = struct {
         const rt = try Raytrace.init(alloc, device, width, height, uniform_buf);
         const blit = try Blit.init(alloc, device, rt.tex_view, uniform_buf);
 
-        const out = try alloc.create(Self);
-        out.* = .{
-            .window = window,
+        var out = Renderer{
             .device = device,
             .surface = surface,
             .queue = c.wgpu_device_get_default_queue(device),
@@ -119,10 +114,6 @@ pub const Renderer = struct {
             .frame = 0,
         };
 
-        window.set_callbacks(
-            size_cb,
-            @ptrCast(?*c_void, out),
-        );
         out.resize_swap_chain(width, height);
 
         return out;
@@ -214,20 +205,10 @@ pub const Renderer = struct {
         );
     }
 
-    pub fn run(self: *Self) !void {
-        while (!self.window.should_close()) {
-            self.redraw();
-            c.glfwPollEvents();
-        }
-        std.debug.print("\n", .{});
-    }
-
     pub fn deinit(self: *Self) void {
         self.blit.deinit();
         self.raytrace.deinit();
         c.wgpu_buffer_destroy(self.uniform_buf);
-
-        self.window.deinit();
     }
 
     pub fn update_size(self: *Self, width_: c_int, height_: c_int) void {
@@ -262,10 +243,4 @@ pub const Renderer = struct {
 
 export fn adapter_cb(received: c.WGPUAdapterId, data: ?*c_void) void {
     @ptrCast(*c.WGPUAdapterId, @alignCast(8, data)).* = received;
-}
-
-export fn size_cb(w: ?*c.GLFWwindow, width: c_int, height: c_int) void {
-    const ptr = c.glfwGetWindowUserPointer(w) orelse std.debug.panic("Missing user pointer", .{});
-    var r = @ptrCast(*Renderer, @alignCast(8, ptr));
-    r.update_size(width, height);
 }

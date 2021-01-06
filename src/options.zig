@@ -2,6 +2,8 @@ const std = @import("std");
 
 pub const Options = struct {
     samples_per_frame: u32,
+    width: u32,
+    height: u32,
 
     fn print_help() !void {
         const stdout = std.io.getStdOut().writer();
@@ -13,6 +15,8 @@ pub const Options = struct {
 
         var out = Options{
             .samples_per_frame = 1,
+            .width = 600,
+            .height = 600,
         };
         var i: usize = 0;
         while (i < args.len) : (i += 1) {

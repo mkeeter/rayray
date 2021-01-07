@@ -1,3 +1,7 @@
+// Dear Imgui backend for GLFW and WebGPU
+//
+// The GLFW logic is roughly based on imgui_impl_glfw.cpp;
+// the WebGPU implementation is custom but inspired by imgui_impl_opengl3.cpp
 const std = @import("std");
 
 const c = @import("c.zig");
@@ -14,8 +18,11 @@ pub const Gui = struct {
     uniform_buf: c.WGPUBufferId,
     bind_group_layout: c.WGPUBindGroupLayoutId,
 
+    // The font texture lives in io.TexID, but we save it here so that we
+    // can destroy it when the Gui is deleted
     font_tex: c.WGPUTextureId,
     font_tex_view: c.WGPUTextureViewId,
+
     tex_sampler: c.WGPUSamplerId, // Used for any texture
 
     // These buffers are dynamically resized as needed.
@@ -267,7 +274,6 @@ pub const Gui = struct {
                 .bind_group_layouts_length = bind_group_layouts.len,
             },
         );
-        std.debug.print("{}, {}\n", .{ pipeline_layout, device });
         defer c.wgpu_pipeline_layout_destroy(pipeline_layout);
 
         const render_pipeline = c.wgpu_device_create_render_pipeline(
@@ -348,7 +354,7 @@ pub const Gui = struct {
         return out;
     }
 
-    fn bind_group_for(self: *Self, tex: c.WGPUTextureId) c.WGPUBindGroupId {
+    fn bind_group_for(self: *Self, tex_view: c.WGPUTextureViewId) c.WGPUBindGroupId {
         const bind_group_entries = [_]c.WGPUBindGroupEntry{
             (c.WGPUBindGroupEntry){
                 .binding = 0,
@@ -361,7 +367,7 @@ pub const Gui = struct {
             },
             (c.WGPUBindGroupEntry){
                 .binding = 1,
-                .texture_view = undefined, // TODO: tex_view
+                .texture_view = tex_view,
                 .sampler = 0, // None
                 .buffer = 0, // None
 
@@ -381,7 +387,7 @@ pub const Gui = struct {
         const bind_group = c.wgpu_device_create_bind_group(
             self.device,
             &(c.WGPUBindGroupDescriptor){
-                .label = "bind group",
+                .label = "gui bind group",
                 .layout = self.bind_group_layout,
                 .entries = &bind_group_entries,
                 .entries_length = bind_group_entries.len,
@@ -392,8 +398,13 @@ pub const Gui = struct {
     pub fn deinit(self: *Self) void {
         c.igDestroyContext(self.ctx);
         c.wgpu_buffer_destroy(self.uniform_buf);
+        c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
+        c.wgpu_texture_destroy(self.font_tex);
+        c.wgpu_texture_view_destroy(self.font_tex_view);
+        c.wgpu_sampler_destroy(self.tex_sampler);
         c.wgpu_buffer_destroy(self.vertex_buf);
         c.wgpu_buffer_destroy(self.index_buf);
+        c.wgpu_render_pipeline_destroy(self.render_pipeline);
     }
 
     pub fn ensure_buf_size_(self: *Self, num_vert: usize, num_index: usize, del_prev_buf: bool) void {
@@ -432,17 +443,10 @@ pub const Gui = struct {
             );
             self.index_buf_size = num_index;
         }
-        // Recreate bind group
     }
 
     pub fn ensure_buf_size(self: *Self, num_vert: usize, num_index: usize) void {
         self.ensure_buf_size_(num_vert, num_index, true);
-    }
-
-    pub fn scroll(self: *Self, x_offset: f32, y_offset: f32) void {
-        var io = c.igGetIO();
-        io.*.MouseWheelH += x_offset;
-        io.*.MouseWheel += y_offset;
     }
 
     pub fn new_frame(self: *Self) void {
@@ -451,12 +455,16 @@ pub const Gui = struct {
         std.debug.assert(c.ImFontAtlas_IsBuilt(io.*.Fonts));
     }
 
-    pub fn draw(self: *Self, cmd_encoder: c.WGPUCommandEncoderId) void {
+    pub fn draw(
+        self: *Self,
+        next_texture: c.WGPUSwapChainOutput,
+        cmd_encoder: c.WGPUCommandEncoderId,
+    ) void {
         var draw_data = c.igGetDrawData();
-        self.render_draw_data(draw_data);
+        self.render_draw_data(next_texture, cmd_encoder, draw_data);
     }
 
-    fn setup_render_state(self: *Self) void {
+    fn setup_render_state(self: *Self, draw_data: [*c]c.ImDrawData) void {
         const L = draw_data.*.DisplayPos.x;
         const R = draw_data.*.DisplayPos.x + draw_data.*.DisplaySize.x;
         const T = draw_data.*.DisplayPos.y;
@@ -469,31 +477,66 @@ pub const Gui = struct {
             .{ (R + L) / (L - R), (T + B) / (B - T), 0.0, 1.0 },
         };
 
-        std.debug.assert(@sizeOf(ortho_projection) == 4 * 4 * 4);
+        std.debug.assert(@sizeOf(@TypeOf(ortho_projection)) == 4 * 4 * 4);
         c.wgpu_queue_write_buffer(
             self.queue,
             self.uniform_buf,
             0,
             @ptrCast([*c]const u8, &ortho_projection),
-            @sizeOf(ortho_projection),
+            @sizeOf(@TypeOf(ortho_projection)),
         );
         return;
     }
 
-    fn render_draw_data(self: *Self, draw_data: i32) void {
+    fn render_draw_data(
+        self: *Self,
+        next_texture: c.WGPUSwapChainOutput,
+        cmd_encoder: c.WGPUCommandEncoderId,
+        draw_data: [*c]c.ImDrawData,
+    ) void {
         self.setup_render_state(draw_data);
-        const rpass = c.wgpu_command_encoder_begin_render_pass(
-            cmd_encoder,
-            &(c.WGPURenderPassDescriptor){
-                .color_attachments = &color_attachments,
-                .color_attachments_length = color_attachments.len,
-                .depth_stencil_attachment = null,
+
+        // Render to the main view
+        const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
+            (c.WGPURenderPassColorAttachmentDescriptor){
+                .attachment = next_texture.view_id,
+                .resolve_target = 0,
+                .channel = (c.WGPUPassChannel_Color){
+                    .load_op = c.WGPULoadOp._Load,
+                    .store_op = c.WGPUStoreOp._Store,
+                    .clear_value = (c.WGPUColor){
+                        .r = 0.0,
+                        .g = 0.0,
+                        .b = 0.0,
+                        .a = 1.0,
+                    },
+                    .read_only = false,
+                },
             },
-        );
-        c.wgpu_render_pass_set_pipeline(rpass, self.render_pipeline);
-        c.wgpu_render_pass_set_vertex_buffer(rpass, 0, 0, 0); // TODO
-        c.wgpu_render_pass_set_index_buffer(rpass, 0, 0, 0); // TODO
-        c.wgpu_render_pass_set_bind_group(rpass, 0, self.bind_group, null, 0);
-        c.wgpu_render_pass_end_pass(rpass);
+        };
+        var n: usize = 0;
+        while (n < draw_data.*.CmdListsCount) : (n += 1) {
+            const rpass = c.wgpu_command_encoder_begin_render_pass(
+                cmd_encoder,
+                &(c.WGPURenderPassDescriptor){
+                    .color_attachments = &color_attachments,
+                    .color_attachments_length = color_attachments.len,
+                    .depth_stencil_attachment = null,
+                },
+            );
+            c.wgpu_render_pass_set_pipeline(rpass, self.render_pipeline);
+            c.wgpu_render_pass_set_vertex_buffer(rpass, 0, self.vertex_buf, 0, self.vertex_buf_size); // TODO
+            c.wgpu_render_pass_set_index_buffer(rpass, self.index_buf, 0, self.index_buf_size); // TODO
+            c.wgpu_render_pass_set_bind_group(rpass, 0, self.bind_group, null, 0);
+            c.wgpu_render_pass_end_pass(rpass);
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+    // GUI callbacks
+    pub fn scroll(self: *Self, x_offset: f32, y_offset: f32) void {
+        var io = c.igGetIO();
+        io.*.MouseWheelH += x_offset;
+        io.*.MouseWheel += y_offset;
     }
 };

@@ -258,7 +258,6 @@ pub const Blit = struct {
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) void {
-        // Update the frame on the GPU (used as a seed)
         const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
             (c.WGPURenderPassColorAttachmentDescriptor){
                 .attachment = next_texture.view_id,

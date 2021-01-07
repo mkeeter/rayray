@@ -67,6 +67,7 @@ pub const Window = struct {
         while (!self.should_close()) {
             self.gui.new_frame();
             self.renderer.redraw();
+            self.gui.draw(undefined, undefined); // TODO
             c.glfwPollEvents();
         }
         std.debug.print("\n", .{});

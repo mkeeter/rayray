@@ -29,12 +29,14 @@ pub const Window = struct {
             // Attach the Window handle to the window so we can extract it
             _ = c.glfwSetWindowUserPointer(window, out);
             _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
+            _ = c.glfwSetScrollCallback(window, scroll_cb);
 
+            const renderer = try Renderer.init(alloc, opt, w);
             out.* = .{
                 .alloc = alloc,
                 .window = w,
-                .renderer = try Renderer.init(alloc, opt, w),
-                .gui = Gui.init(alloc),
+                .renderer = renderer,
+                .gui = try Gui.init(alloc, renderer.device),
             };
             return out;
         } else {
@@ -63,6 +65,7 @@ pub const Window = struct {
 
     pub fn run(self: *Self) !void {
         while (!self.should_close()) {
+            self.gui.new_frame();
             self.renderer.redraw();
             c.glfwPollEvents();
         }
@@ -72,10 +75,20 @@ pub const Window = struct {
     pub fn update_size(self: *Self, width_: c_int, height_: c_int) void {
         self.renderer.update_size(width_, height_);
     }
+
+    pub fn on_scroll(self: *Self, dx: f64, dy: f64) void {
+        self.gui.scroll(@floatCast(f32, dx), @floatCast(f32, dy));
+    }
 };
 
 export fn size_cb(w: ?*c.GLFWwindow, width: c_int, height: c_int) void {
     const ptr = c.glfwGetWindowUserPointer(w) orelse std.debug.panic("Missing user pointer", .{});
     var r = @ptrCast(*Window, @alignCast(8, ptr));
     r.update_size(width, height);
+}
+
+export fn scroll_cb(w: ?*c.GLFWwindow, dx: f64, dy: f64) void {
+    const ptr = c.glfwGetWindowUserPointer(w) orelse std.debug.panic("Missing user pointer", .{});
+    var r = @ptrCast(*Window, @alignCast(8, ptr));
+    r.on_scroll(dx, dy);
 }

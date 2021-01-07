@@ -18,5 +18,5 @@ pub fn main() anyerror!void {
     var window = try Window.init(alloc, options, "rayray");
     defer window.deinit();
 
-    try window.run();
+    window.run();
 }

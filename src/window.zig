@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const std = @import("std");
 
 const c = @import("c.zig");
@@ -9,7 +10,15 @@ pub const Window = struct {
     const Self = @This();
 
     alloc: *std.mem.Allocator,
+
     window: *c.GLFWwindow,
+
+    // WGPU handles
+    device: c.WGPUDeviceId,
+    surface: c.WGPUSurfaceId,
+    swap_chain: c.WGPUSwapChainId,
+
+    // Subsystems
     renderer: Renderer,
     gui: Gui,
 
@@ -20,30 +29,80 @@ pub const Window = struct {
             name,
             null,
             null,
-        );
-
-        // Open the window!
-        if (window) |w| {
-            var out = try alloc.create(Self);
-
-            // Attach the Window handle to the window so we can extract it
-            _ = c.glfwSetWindowUserPointer(window, out);
-            _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
-            _ = c.glfwSetScrollCallback(window, scroll_cb);
-
-            const renderer = try Renderer.init(alloc, opt, w);
-            out.* = .{
-                .alloc = alloc,
-                .window = w,
-                .renderer = renderer,
-                .gui = try Gui.init(alloc, renderer.device),
-            };
-            return out;
-        } else {
+        ) orelse {
             var err_str: [*c]u8 = null;
             const err = c.glfwGetError(&err_str);
             std.debug.panic("Failed to open window: {} ({})", .{ err, err_str });
-        }
+        };
+
+        var width_: c_int = undefined;
+        var height_: c_int = undefined;
+        c.glfwGetFramebufferSize(window, &width_, &height_);
+        const width = @intCast(u32, width_);
+        const height = @intCast(u32, height_);
+
+        // Extract the WGPU Surface from the platform-specific window
+        const platform = builtin.os.tag;
+        const surface = if (platform == .macos) surf: {
+            // Time to do hilarious Objective-C runtime hacks, equivalent to
+            //  [ns_window.contentView setWantsLayer:YES];
+            //  id metal_layer = [CAMetalLayer layer];
+            //  [ns_window.contentView setLayer:metal_layer];
+            const objc = @import("objc.zig");
+            const darwin = @import("darwin.zig");
+
+            const cocoa_window = darwin.glfwGetCocoaWindow(window);
+            const ns_window = @ptrCast(c.id, @alignCast(8, cocoa_window));
+
+            const cv = objc.call(ns_window, "contentView");
+            _ = objc.call_(cv, "setWantsLayer:", true);
+
+            const ca_metal = objc.class("CAMetalLayer");
+            const metal_layer = objc.call(ca_metal, "layer");
+
+            _ = objc.call_(cv, "setLayer:", metal_layer);
+
+            break :surf c.wgpu_create_surface_from_metal_layer(metal_layer);
+        } else {
+            std.debug.panic("Unimplemented on platform {}", .{platform});
+        };
+
+        ////////////////////////////////////////////////////////////////////////////
+        // WGPU initial setup
+        var adapter: c.WGPUAdapterId = 0;
+        c.wgpu_request_adapter_async(&(c.WGPURequestAdapterOptions){
+            .power_preference = c.WGPUPowerPreference._HighPerformance,
+            .compatible_surface = surface,
+        }, 2 | 4 | 8, false, adapter_cb, &adapter);
+
+        const device = c.wgpu_adapter_request_device(
+            adapter,
+            0,
+            &(c.WGPUCLimits){
+                .max_bind_groups = 1,
+            },
+            true,
+            null,
+        );
+
+        var out = try alloc.create(Self);
+
+        // Attach the Window handle to the window so we can extract it
+        _ = c.glfwSetWindowUserPointer(window, out);
+        _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
+        _ = c.glfwSetScrollCallback(window, scroll_cb);
+
+        out.* = .{
+            .alloc = alloc,
+            .window = window,
+            .device = device,
+            .surface = surface,
+            .swap_chain = undefined,
+            .renderer = try Renderer.init(alloc, opt, width, height, device),
+            .gui = try Gui.init(alloc, device),
+        };
+        out.resize_swap_chain(width, height);
+        return out;
     }
 
     pub fn deinit(self: *Self) void {
@@ -63,18 +122,51 @@ pub const Window = struct {
         data: ?*c_void,
     ) void {}
 
-    pub fn run(self: *Self) !void {
+    fn draw(self: *Self) void {
+        const next_texture = c.wgpu_swap_chain_get_next_texture(self.swap_chain);
+        if (next_texture.view_id == 0) {
+            std.debug.panic("Cannot acquire next swap chain texture", .{});
+        }
+
+        const cmd_encoder = c.wgpu_device_create_command_encoder(
+            self.device,
+            &(c.WGPUCommandEncoderDescriptor){ .label = "main encoder" },
+        );
+
+        self.gui.new_frame();
+        self.renderer.draw(next_texture, cmd_encoder);
+        //self.gui.draw(next_texture, cmd_encoder);
+
+        c.wgpu_swap_chain_present(self.swap_chain);
+    }
+
+    pub fn run(self: *Self) void {
         while (!self.should_close()) {
-            self.gui.new_frame();
-            self.renderer.redraw();
-            self.gui.draw(undefined, undefined); // TODO
+            self.draw();
             c.glfwPollEvents();
         }
         std.debug.print("\n", .{});
     }
 
-    pub fn update_size(self: *Self, width_: c_int, height_: c_int) void {
-        self.renderer.update_size(width_, height_);
+    fn update_size(self: *Self, width_: c_int, height_: c_int) void {
+        const width = @intCast(u32, width_);
+        const height = @intCast(u32, height_);
+        self.renderer.update_size(width, height);
+        self.resize_swap_chain(width, height);
+    }
+
+    fn resize_swap_chain(self: *Self, width: u32, height: u32) void {
+        self.swap_chain = c.wgpu_device_create_swap_chain(
+            self.device,
+            self.surface,
+            &(c.WGPUSwapChainDescriptor){
+                .usage = c.WGPUTextureUsage_OUTPUT_ATTACHMENT,
+                .format = c.WGPUTextureFormat._Bgra8Unorm,
+                .width = width,
+                .height = height,
+                .present_mode = c.WGPUPresentMode._Fifo,
+            },
+        );
     }
 
     pub fn on_scroll(self: *Self, dx: f64, dy: f64) void {
@@ -92,4 +184,8 @@ export fn scroll_cb(w: ?*c.GLFWwindow, dx: f64, dy: f64) void {
     const ptr = c.glfwGetWindowUserPointer(w) orelse std.debug.panic("Missing user pointer", .{});
     var r = @ptrCast(*Window, @alignCast(8, ptr));
     r.on_scroll(dx, dy);
+}
+
+export fn adapter_cb(received: c.WGPUAdapterId, data: ?*c_void) void {
+    @ptrCast(*c.WGPUAdapterId, @alignCast(8, data)).* = received;
 }

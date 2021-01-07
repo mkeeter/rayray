@@ -376,7 +376,7 @@ pub const Gui = struct {
             },
             (c.WGPUBindGroupEntry){
                 .binding = 2,
-                .sampler = tex_sampler,
+                .sampler = self.tex_sampler,
                 .texture_view = 0, // None
                 .buffer = 0, // None
 
@@ -384,7 +384,7 @@ pub const Gui = struct {
                 .size = undefined,
             },
         };
-        const bind_group = c.wgpu_device_create_bind_group(
+        return c.wgpu_device_create_bind_group(
             self.device,
             &(c.WGPUBindGroupDescriptor){
                 .label = "gui bind group",
@@ -421,7 +421,7 @@ pub const Gui = struct {
                 self.device,
                 &(c.WGPUBufferDescriptor){
                     .label = "gui vertices",
-                    .size = @sizeOf(f32) * 8 * num_vert, // pos2, uv2, color4
+                    .size = @sizeOf(c.ImDrawVert) * num_vert, // pos2, uv2, color4
                     .usage = c.WGPUBufferUsage_VERTEX | c.WGPUBufferUsage_COPY_DST,
                     .mapped_at_creation = false,
                 },
@@ -436,7 +436,7 @@ pub const Gui = struct {
                 self.device,
                 &(c.WGPUBufferDescriptor){
                     .label = "gui indexes",
-                    .size = @sizeOf(u32) * num_index,
+                    .size = @sizeOf(c.ImDrawIdx) * num_index,
                     .usage = c.WGPUBufferUsage_INDEX | c.WGPUBufferUsage_COPY_DST,
                     .mapped_at_creation = false,
                 },
@@ -516,19 +516,51 @@ pub const Gui = struct {
         };
         var n: usize = 0;
         while (n < draw_data.*.CmdListsCount) : (n += 1) {
-            const rpass = c.wgpu_command_encoder_begin_render_pass(
-                cmd_encoder,
-                &(c.WGPURenderPassDescriptor){
-                    .color_attachments = &color_attachments,
-                    .color_attachments_length = color_attachments.len,
-                    .depth_stencil_attachment = null,
-                },
+            const cmd_list = draw_data.*.CmdLists[n];
+
+            // Copy this draw list data into the buffers, after making sure
+            // that they're large enough
+            self.ensure_buf_size(
+                @intCast(usize, cmd_list.*.VtxBuffer.Size),
+                @intCast(usize, cmd_list.*.IdxBuffer.Size),
             );
-            c.wgpu_render_pass_set_pipeline(rpass, self.render_pipeline);
-            c.wgpu_render_pass_set_vertex_buffer(rpass, 0, self.vertex_buf, 0, self.vertex_buf_size); // TODO
-            c.wgpu_render_pass_set_index_buffer(rpass, self.index_buf, 0, self.index_buf_size); // TODO
-            c.wgpu_render_pass_set_bind_group(rpass, 0, self.bind_group, null, 0);
-            c.wgpu_render_pass_end_pass(rpass);
+            c.wgpu_queue_write_buffer(
+                self.queue,
+                self.vertex_buf,
+                0,
+                @ptrCast([*c]const u8, cmd_list.*.VtxBuffer.Data),
+                @intCast(usize, cmd_list.*.VtxBuffer.Size) * @sizeOf(c.ImDrawVert),
+            );
+            c.wgpu_queue_write_buffer(
+                self.queue,
+                self.index_buf,
+                0,
+                @ptrCast([*c]const u8, cmd_list.*.IdxBuffer.Data),
+                @intCast(usize, cmd_list.*.IdxBuffer.Size) * @sizeOf(c.ImDrawIdx),
+            );
+
+            var cmd_i: usize = 0;
+            while (cmd_i < cmd_list.*.CmdBuffer.Size) : (cmd_i += 1) {
+                const pcmd = &cmd_list.*.CmdBuffer.Data[cmd_i];
+                std.debug.assert(pcmd.*.UserCallback == null);
+
+                const rpass = c.wgpu_command_encoder_begin_render_pass(
+                    cmd_encoder,
+                    &(c.WGPURenderPassDescriptor){
+                        .color_attachments = &color_attachments,
+                        .color_attachments_length = color_attachments.len,
+                        .depth_stencil_attachment = null,
+                    },
+                );
+                const bind_group = self.bind_group_for(@intCast(c.WGPUTextureViewId, @ptrToInt(pcmd.*.TextureId)));
+                defer c.wgpu_bind_group_destroy(bind_group);
+
+                c.wgpu_render_pass_set_pipeline(rpass, self.render_pipeline);
+                c.wgpu_render_pass_set_vertex_buffer(rpass, 0, self.vertex_buf, 0, self.vertex_buf_size); // TODO
+                c.wgpu_render_pass_set_index_buffer(rpass, self.index_buf, 0, self.index_buf_size); // TODO
+                c.wgpu_render_pass_set_bind_group(rpass, 0, bind_group, null, 0);
+                c.wgpu_render_pass_end_pass(rpass);
+            }
         }
     }
 

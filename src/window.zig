@@ -133,9 +133,21 @@ pub const Window = struct {
             &(c.WGPUCommandEncoderDescriptor){ .label = "main encoder" },
         );
 
-        self.gui.new_frame();
+        // TODO cache these instead of checking on each frame
+        var win_width: c_int = undefined;
+        var win_height: c_int = undefined;
+        var fbo_width: c_int = undefined;
+        var fbo_height: c_int = undefined;
+        c.glfwGetWindowSize(self.window, &win_width, &win_height);
+        c.glfwGetFramebufferSize(self.window, &fbo_width, &fbo_height);
+        self.gui.new_frame(
+            win_width,
+            win_height,
+            @divFloor(fbo_width, win_width),
+        );
+
         self.renderer.draw(next_texture, cmd_encoder);
-        //self.gui.draw(next_texture, cmd_encoder);
+        self.gui.draw(next_texture, cmd_encoder);
 
         c.wgpu_swap_chain_present(self.swap_chain);
     }

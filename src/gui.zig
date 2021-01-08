@@ -11,6 +11,7 @@ pub const Gui = struct {
     const Self = @This();
 
     ctx: *c.ImGuiContext,
+    time_ms: ?i64,
 
     device: c.WGPUDeviceId,
     queue: c.WGPUQueueId,
@@ -327,6 +328,8 @@ pub const Gui = struct {
 
         var out = Gui{
             .ctx = ctx,
+            .time_ms = null,
+
             .device = device,
             .queue = queue,
 
@@ -449,10 +452,33 @@ pub const Gui = struct {
         self.ensure_buf_size_(num_vert, num_index, true);
     }
 
-    pub fn new_frame(self: *Self) void {
+    pub fn new_frame(
+        self: *Self,
+        win_width: c_int,
+        win_height: c_int,
+        density: c_int,
+    ) void {
         var io = c.igGetIO();
-
         std.debug.assert(c.ImFontAtlas_IsBuilt(io.*.Fonts));
+
+        io.*.DisplaySize = c.ImVec2{
+            .x = @intToFloat(f32, win_width),
+            .y = @intToFloat(f32, win_height),
+        };
+        io.*.DisplayFramebufferScale = c.ImVec2{
+            .x = @intToFloat(f32, density),
+            .y = @intToFloat(f32, density),
+        };
+
+        const now_ms = std.time.milliTimestamp();
+        if (self.time_ms) |t| {
+            io.*.DeltaTime = @intToFloat(f32, now_ms - t) / 1000.0;
+        } else {
+            io.*.DeltaTime = 1.0 / 60.0;
+        }
+        self.time_ms = now_ms;
+
+        c.igNewFrame();
     }
 
     pub fn draw(
@@ -460,6 +486,7 @@ pub const Gui = struct {
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) void {
+        c.igRender();
         var draw_data = c.igGetDrawData();
         self.render_draw_data(next_texture, cmd_encoder, draw_data);
     }

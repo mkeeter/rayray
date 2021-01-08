@@ -314,7 +314,7 @@ pub const Gui = struct {
                 .color_states_length = 1,
                 .depth_stencil_state = null,
                 .vertex_state = (c.WGPUVertexStateDescriptor){
-                    .index_format = c.WGPUIndexFormat._Uint32,
+                    .index_format = c.WGPUIndexFormat._Uint16,
                     .vertex_buffers = &vertex_buffer_layout_entries,
                     .vertex_buffers_length = vertex_buffer_layout_entries.len,
                 },

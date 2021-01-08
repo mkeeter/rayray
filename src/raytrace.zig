@@ -74,7 +74,7 @@ pub const Raytrace = struct {
         );
 
         // Upload a flattened scene representation to the scene buffer
-        var scene = try Scene.new_rtiow(alloc);
+        var scene = try Scene.new_cornell_box(alloc);
 
         const encoded = try scene.encode();
         defer alloc.free(encoded);

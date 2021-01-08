@@ -8,6 +8,7 @@ pub usingnamespace @cImport({
     @cInclude("shaderc/shaderc.h");
 
     @cDefine("CIMGUI_DEFINE_ENUMS_AND_STRUCTS", "");
+    @cDefine("ImDrawIdx", "unsigned int");
     @cInclude("cimgui/cimgui.h");
 
     @cInclude("extern/rayray.h");

@@ -145,6 +145,7 @@ pub const Window = struct {
             win_height,
             @divFloor(fbo_width, win_width),
         );
+        c.igShowDemoWindow(null);
 
         self.renderer.draw(next_texture, cmd_encoder);
         self.gui.draw(next_texture, cmd_encoder);

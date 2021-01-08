@@ -471,11 +471,11 @@ pub const Gui = struct {
         };
 
         const now_ms = std.time.milliTimestamp();
+        var dt_sec: f32 = 0;
         if (self.time_ms) |t| {
-            io.*.DeltaTime = std.math.min(1.0 / 60., @intToFloat(f32, now_ms - t) / 1000.0);
-        } else {
-            io.*.DeltaTime = 1.0 / 60.0;
+            dt_sec = @intToFloat(f32, now_ms - t) / 1000.0;
         }
+        io.*.DeltaTime = if (dt_sec <= 0) (1.0 / 60.0) else dt_sec;
         self.time_ms = now_ms;
 
         c.igNewFrame();

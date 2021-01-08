@@ -118,13 +118,13 @@ pub const Scene = struct {
 
     fn default_camera() c.rayCamera {
         return .{
-            .pos = .{ .x = 8, .y = 1.5, .z = 2 },
+            .pos = .{ .x = 0, .y = 0, .z = 1 },
             .target = .{ .x = 0, .y = 0, .z = 0 },
             .up = .{ .x = 0, .y = 1, .z = 0 },
             .scale = 1,
-            .defocus = 0.03,
+            .defocus = 0.02,
             .perspective = 0.4,
-            .focal_distance = 4.0,
+            .focal_distance = 0.8,
         };
     }
 

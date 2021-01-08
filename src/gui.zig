@@ -472,7 +472,7 @@ pub const Gui = struct {
 
         const now_ms = std.time.milliTimestamp();
         if (self.time_ms) |t| {
-            io.*.DeltaTime = @intToFloat(f32, now_ms - t) / 1000.0;
+            io.*.DeltaTime = std.math.min(1.0 / 60., @intToFloat(f32, now_ms - t) / 1000.0);
         } else {
             io.*.DeltaTime = 1.0 / 60.0;
         }
@@ -586,6 +586,7 @@ pub const Gui = struct {
                 c.wgpu_render_pass_set_vertex_buffer(rpass, 0, self.vertex_buf, 0, self.vertex_buf_size); // TODO
                 c.wgpu_render_pass_set_index_buffer(rpass, self.index_buf, 0, self.index_buf_size); // TODO
                 c.wgpu_render_pass_set_bind_group(rpass, 0, bind_group, null, 0);
+                c.wgpu_render_pass_draw(rpass, 3, 1, 0, 0);
                 c.wgpu_render_pass_end_pass(rpass);
             }
         }

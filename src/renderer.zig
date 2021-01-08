@@ -100,8 +100,6 @@ pub const Renderer = struct {
         self.frame += 1;
 
         self.blit.draw(next_texture, cmd_encoder);
-        const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);
-        c.wgpu_queue_submit(self.queue, &cmd_buf, 1);
     }
 
     fn prefix(v: *f64) u8 {

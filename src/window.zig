@@ -15,6 +15,7 @@ pub const Window = struct {
 
     // WGPU handles
     device: c.WGPUDeviceId,
+    queue: c.WGPUQueueId,
     surface: c.WGPUSurfaceId,
     swap_chain: c.WGPUSwapChainId,
 
@@ -96,6 +97,7 @@ pub const Window = struct {
             .alloc = alloc,
             .window = window,
             .device = device,
+            .queue = c.wgpu_device_get_default_queue(device),
             .surface = surface,
             .swap_chain = undefined,
             .renderer = try Renderer.init(alloc, opt, width, height, device),
@@ -145,10 +147,15 @@ pub const Window = struct {
             win_height,
             @divFloor(fbo_width, win_width),
         );
+
+        // Do some GUI stuff here
         c.igShowDemoWindow(null);
 
         self.renderer.draw(next_texture, cmd_encoder);
         self.gui.draw(next_texture, cmd_encoder);
+
+        const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);
+        c.wgpu_queue_submit(self.queue, &cmd_buf, 1);
 
         c.wgpu_swap_chain_present(self.swap_chain);
     }

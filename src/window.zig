@@ -91,7 +91,6 @@ pub const Window = struct {
         // Attach the Window handle to the window so we can extract it
         _ = c.glfwSetWindowUserPointer(window, out);
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
-        _ = c.glfwSetScrollCallback(window, scroll_cb);
 
         out.* = .{
             .alloc = alloc,
@@ -101,7 +100,7 @@ pub const Window = struct {
             .surface = surface,
             .swap_chain = undefined,
             .renderer = try Renderer.init(alloc, opt, width, height, device),
-            .gui = try Gui.init(alloc, device),
+            .gui = try Gui.init(alloc, window, device),
         };
         out.resize_swap_chain(width, height);
         return out;
@@ -188,22 +187,12 @@ pub const Window = struct {
             },
         );
     }
-
-    pub fn on_scroll(self: *Self, dx: f64, dy: f64) void {
-        self.gui.scroll(@floatCast(f32, dx), @floatCast(f32, dy));
-    }
 };
 
 export fn size_cb(w: ?*c.GLFWwindow, width: c_int, height: c_int) void {
     const ptr = c.glfwGetWindowUserPointer(w) orelse std.debug.panic("Missing user pointer", .{});
     var r = @ptrCast(*Window, @alignCast(8, ptr));
     r.update_size(width, height);
-}
-
-export fn scroll_cb(w: ?*c.GLFWwindow, dx: f64, dy: f64) void {
-    const ptr = c.glfwGetWindowUserPointer(w) orelse std.debug.panic("Missing user pointer", .{});
-    var r = @ptrCast(*Window, @alignCast(8, ptr));
-    r.on_scroll(dx, dy);
 }
 
 export fn adapter_cb(received: c.WGPUAdapterId, data: ?*c_void) void {

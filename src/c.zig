@@ -10,6 +10,7 @@ pub usingnamespace @cImport({
     @cDefine("CIMGUI_DEFINE_ENUMS_AND_STRUCTS", "");
     @cDefine("ImDrawIdx", "unsigned int"); // index buffer must be 4-aligned
     @cInclude("cimgui/cimgui.h");
+    @cInclude("cimgui/generator/output/cimgui_impl.h");
 
     @cInclude("extern/rayray.h");
 

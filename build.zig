@@ -30,7 +30,11 @@ pub fn build(b: *Builder) void {
     exe.addIncludeDir("."); // for "extern/rayray.h"
 
     const c_args = [_][]const u8{
-        "-O3", "-DImDrawIdx=uint32_t",
+        "-O3",
+        "-DImDrawIdx=uint32_t",
+        "-Ivendor/cimgui/imgui",
+        // Force C linkage for imgui_impl_glfw.cpp
+        "-DIMGUI_IMPL_API=extern \"C\"",
     };
     const imgui_files = [_][]const u8{
         "vendor/cimgui/cimgui.cpp",
@@ -38,6 +42,7 @@ pub fn build(b: *Builder) void {
         "vendor/cimgui/imgui/imgui_draw.cpp",
         "vendor/cimgui/imgui/imgui_demo.cpp",
         "vendor/cimgui/imgui/imgui_widgets.cpp",
+        "vendor/cimgui/imgui/examples/imgui_impl_glfw.cpp",
     };
     exe.addCSourceFiles(&imgui_files, &c_args);
 

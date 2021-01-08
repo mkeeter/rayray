@@ -7,6 +7,35 @@ const std = @import("std");
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
 
+const Font = struct {
+    width: u32,
+    height: u32,
+    pixels: [*]u8,
+    bytes_per_pixel: u32,
+
+    fn from_io(io: [*c]c.ImGuiIO) Font {
+        var font_pixels_: ?*u8 = undefined;
+        var font_width_: c_int = undefined;
+        var font_height_: c_int = undefined;
+        var font_bytes_per_pixel_: c_int = undefined;
+        c.ImFontAtlas_GetTexDataAsRGBA32(
+            io.*.Fonts,
+            &font_pixels_,
+            &font_width_,
+            &font_height_,
+            &font_bytes_per_pixel_,
+        );
+        return Font{
+            .width = @intCast(u32, font_width_),
+            .height = @intCast(u32, font_height_),
+            .pixels = @ptrCast([*]u8, font_pixels_ orelse {
+                std.debug.panic("Could not get font", .{});
+            }),
+            .bytes_per_pixel = @intCast(u32, font_bytes_per_pixel_),
+        };
+    }
+};
+
 pub const Gui = struct {
     const Self = @This();
 
@@ -112,23 +141,13 @@ pub const Gui = struct {
 
         ///////////////////////////////////////////////////////////////////////
         // Font texture
-        var font_pixels: ?*u8 = undefined;
-        var font_width: c_int = undefined;
-        var font_height: c_int = undefined;
-        var bytes_per_pixel: c_int = undefined;
-        c.ImFontAtlas_GetTexDataAsRGBA32(
-            io.*.Fonts,
-            &font_pixels,
-            &font_width,
-            &font_height,
-            &bytes_per_pixel,
-        );
+        const font = Font.from_io(io);
         const font_tex = c.wgpu_device_create_texture(
             device,
             &(c.WGPUTextureDescriptor){
                 .size = .{
-                    .width = @intCast(u32, font_width),
-                    .height = @intCast(u32, font_height),
+                    .width = font.width,
+                    .height = font.height,
                     .depth = 1,
                 },
                 .mip_level_count = 1,
@@ -155,8 +174,8 @@ pub const Gui = struct {
             },
         );
         const font_tex_size = (c.WGPUExtent3d){
-            .width = @intCast(u32, font_width),
-            .height = @intCast(u32, font_height),
+            .width = font.width,
+            .height = font.height,
             .depth = 1,
         };
         c.wgpu_queue_write_texture(
@@ -166,12 +185,12 @@ pub const Gui = struct {
                 .mip_level = 0,
                 .origin = (c.WGPUOrigin3d){ .x = 0, .y = 0, .z = 0 },
             },
-            @ptrCast([*]const u8, font_pixels),
-            @intCast(usize, font_width) * @intCast(usize, font_height) * @sizeOf(u32),
+            @ptrCast([*]const u8, font.pixels),
+            font.width * font.height * font.bytes_per_pixel,
             &(c.WGPUTextureDataLayout){
                 .offset = 0,
-                .bytes_per_row = @intCast(u32, font_width) * @sizeOf(u32),
-                .rows_per_image = @intCast(u32, font_height) * @sizeOf(u32),
+                .bytes_per_row = font.width * font.bytes_per_pixel,
+                .rows_per_image = font.height,
             },
             &font_tex_size,
         );
@@ -185,7 +204,7 @@ pub const Gui = struct {
             .address_mode_u = c.WGPUAddressMode._ClampToEdge,
             .address_mode_v = c.WGPUAddressMode._ClampToEdge,
             .address_mode_w = c.WGPUAddressMode._ClampToEdge,
-            .mag_filter = c.WGPUFilterMode._Linear,
+            .mag_filter = c.WGPUFilterMode._Nearest,
             .min_filter = c.WGPUFilterMode._Nearest,
             .mipmap_filter = c.WGPUFilterMode._Nearest,
             .lod_min_clamp = 0.0,
@@ -217,7 +236,7 @@ pub const Gui = struct {
 
                 .multisampled = false,
                 .view_dimension = c.WGPUTextureViewDimension._D2,
-                .texture_component_type = c.WGPUTextureComponentType._Uint,
+                .texture_component_type = c.WGPUTextureComponentType._Float,
                 .storage_texture_format = c.WGPUTextureFormat._Rgba8Unorm,
 
                 .count = undefined,
@@ -251,16 +270,25 @@ pub const Gui = struct {
         ////////////////////////////////////////////////////////////////////////////
         // Vertex buffers (new!)
         const vertex_buffer_attributes = [_]c.WGPUVertexAttributeDescriptor{
-            // position
-            .{ .offset = 0, .format = c.WGPUVertexFormat._Float2, .shader_location = 0 },
-            // uv
-            .{ .offset = 8, .format = c.WGPUVertexFormat._Float2, .shader_location = 1 },
-            // color
-            .{ .offset = 16, .format = c.WGPUVertexFormat._Float4, .shader_location = 2 },
+            .{
+                .offset = @byteOffsetOf(c.ImDrawVert, "pos"),
+                .format = c.WGPUVertexFormat._Float2,
+                .shader_location = 0,
+            },
+            .{
+                .offset = @byteOffsetOf(c.ImDrawVert, "uv"),
+                .format = c.WGPUVertexFormat._Float2,
+                .shader_location = 1,
+            },
+            .{
+                .offset = @byteOffsetOf(c.ImDrawVert, "col"),
+                .format = c.WGPUVertexFormat._Uchar4Norm,
+                .shader_location = 2,
+            },
         };
         const vertex_buffer_layout_entries = [_]c.WGPUVertexBufferLayoutDescriptor{
             .{
-                .array_stride = 0,
+                .array_stride = @sizeOf(c.ImDrawVert),
                 .step_mode = c.WGPUInputStepMode._Vertex,
                 .attributes = &vertex_buffer_attributes,
                 .attributes_length = vertex_buffer_attributes.len,
@@ -300,13 +328,13 @@ pub const Gui = struct {
                 .color_states = &(c.WGPUColorStateDescriptor){
                     .format = c.WGPUTextureFormat._Bgra8Unorm,
                     .alpha_blend = (c.WGPUBlendDescriptor){
-                        .src_factor = c.WGPUBlendFactor._One,
-                        .dst_factor = c.WGPUBlendFactor._Zero,
+                        .src_factor = c.WGPUBlendFactor._SrcAlpha,
+                        .dst_factor = c.WGPUBlendFactor._OneMinusSrcAlpha,
                         .operation = c.WGPUBlendOperation._Add,
                     },
                     .color_blend = (c.WGPUBlendDescriptor){
-                        .src_factor = c.WGPUBlendFactor._One,
-                        .dst_factor = c.WGPUBlendFactor._Zero,
+                        .src_factor = c.WGPUBlendFactor._SrcAlpha,
+                        .dst_factor = c.WGPUBlendFactor._OneMinusSrcAlpha,
                         .operation = c.WGPUBlendOperation._Add,
                     },
                     .write_mask = c.WGPUColorWrite_ALL,
@@ -543,7 +571,6 @@ pub const Gui = struct {
         };
         var n: usize = 0;
         while (n < draw_data.*.CmdListsCount) : (n += 1) {
-            std.debug.print("Drawing draw_data[{}]\n", .{n});
             const cmd_list = draw_data.*.CmdLists[n];
 
             const vtx_buf_size = @intCast(usize, cmd_list.*.VtxBuffer.Size) * @sizeOf(c.ImDrawVert);
@@ -552,7 +579,6 @@ pub const Gui = struct {
             // Copy this draw list data into the buffers, after making sure
             // that they're large enough
             self.ensure_buf_size(vtx_buf_size, idx_buf_size);
-            std.debug.print("    Copying {} items to vtx buf\n", .{cmd_list.*.VtxBuffer.Size});
             c.wgpu_queue_write_buffer(
                 self.queue,
                 self.vertex_buf,
@@ -560,7 +586,6 @@ pub const Gui = struct {
                 @ptrCast([*c]const u8, cmd_list.*.VtxBuffer.Data),
                 vtx_buf_size,
             );
-            std.debug.print("    Copying {} items to idx buf\n", .{cmd_list.*.IdxBuffer.Size});
             c.wgpu_queue_write_buffer(
                 self.queue,
                 self.index_buf,
@@ -575,7 +600,6 @@ pub const Gui = struct {
 
             var cmd_i: usize = 0;
             while (cmd_i < cmd_list.*.CmdBuffer.Size) : (cmd_i += 1) {
-                std.debug.print("    Drawing cmd_list[{}]\n", .{cmd_i});
                 const pcmd = &cmd_list.*.CmdBuffer.Data[cmd_i];
                 std.debug.assert(pcmd.*.UserCallback == null);
 
@@ -609,7 +633,6 @@ pub const Gui = struct {
                 // TODO: set scissor rect
                 //c.wgpu_render_pass_set_scissor_rect(rpass, ...)
 
-                std.debug.print("        Rendering {} elements at offset {}\n", .{ pcmd.*.ElemCount, pcmd.*.IdxOffset });
                 c.wgpu_render_pass_draw_indexed(rpass, pcmd.*.ElemCount, 1, pcmd.*.IdxOffset, 0, 0);
                 c.wgpu_render_pass_end_pass(rpass);
             }

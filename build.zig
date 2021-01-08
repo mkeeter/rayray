@@ -30,7 +30,7 @@ pub fn build(b: *Builder) void {
     exe.addIncludeDir("."); // for "extern/rayray.h"
 
     const c_args = [_][]const u8{
-        "-O3",
+        "-O3", "-DImDrawIdx=uint32_t",
     };
     const imgui_files = [_][]const u8{
         "vendor/cimgui/cimgui.cpp",

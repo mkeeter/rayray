@@ -80,9 +80,14 @@ pub const Renderer = struct {
 
     pub fn draw(
         self: *Self,
+        clear: bool,
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) void {
+        if (clear) {
+            self.uniforms.samples = 0;
+        }
+
         self.update_uniforms();
 
         // Record the start time at the first frame, to skip startup time

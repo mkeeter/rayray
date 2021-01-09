@@ -138,8 +138,19 @@ pub const Window = struct {
 
         // Do some GUI stuff here
         c.igShowDemoWindow(null);
+        var clear = false;
+        if (c.igBegin("Camera", null, 0)) {
+            clear = clear or c.igDragFloat3("pos", @ptrCast([*c]f32, &self.renderer.uniforms.camera.pos), 0.05, -10, 10, "%.1f", 0);
+            clear = clear or c.igDragFloat3("target", @ptrCast([*c]f32, &self.renderer.uniforms.camera.target), 0.05, -10, 10, "%.1f", 0);
+            clear = clear or c.igDragFloat3("up", @ptrCast([*c]f32, &self.renderer.uniforms.camera.up), 0.1, -1, 1, "%.1f", 0);
+            clear = clear or c.igDragFloat("perspective", &self.renderer.uniforms.camera.perspective, 0.01, 0, 1, "%.2f", 0);
+            clear = clear or c.igDragFloat("defocus", &self.renderer.uniforms.camera.defocus, 0.001, 0, 0.2, "%.2f", 0);
+            clear = clear or c.igDragFloat("focal length", &self.renderer.uniforms.camera.focal_distance, 0.01, 0, 10, "%.2f", 0);
+            clear = clear or c.igDragFloat("scale", &self.renderer.uniforms.camera.scale, 0.05, 0, 2, "%.1f", 0);
+        }
+        c.igEnd();
 
-        self.renderer.draw(next_texture, cmd_encoder);
+        self.renderer.draw(clear, next_texture, cmd_encoder);
         self.gui.draw(next_texture, cmd_encoder);
 
         const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);

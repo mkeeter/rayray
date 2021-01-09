@@ -134,18 +134,7 @@ pub const Window = struct {
             &(c.WGPUCommandEncoderDescriptor){ .label = "main encoder" },
         );
 
-        // TODO cache these instead of checking on each frame
-        var win_width: c_int = undefined;
-        var win_height: c_int = undefined;
-        var fbo_width: c_int = undefined;
-        var fbo_height: c_int = undefined;
-        c.glfwGetWindowSize(self.window, &win_width, &win_height);
-        c.glfwGetFramebufferSize(self.window, &fbo_width, &fbo_height);
-        self.gui.new_frame(
-            win_width,
-            win_height,
-            @divFloor(fbo_width, win_width),
-        );
+        self.gui.new_frame();
 
         // Do some GUI stuff here
         c.igShowDemoWindow(null);

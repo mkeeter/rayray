@@ -456,34 +456,9 @@ pub const Gui = struct {
         self.ensure_buf_size_(vtx_bytes, num_index, true);
     }
 
-    pub fn new_frame(
-        self: *Self,
-        win_width: c_int,
-        win_height: c_int,
-        density: c_int,
-    ) void {
-        var io = c.igGetIO();
-        std.debug.assert(c.ImFontAtlas_IsBuilt(io.*.Fonts));
-
-        io.*.DisplaySize = c.ImVec2{
-            .x = @intToFloat(f32, win_width),
-            .y = @intToFloat(f32, win_height),
-        };
-        io.*.DisplayFramebufferScale = c.ImVec2{
-            .x = @intToFloat(f32, density),
-            .y = @intToFloat(f32, density),
-        };
-
-        const now_ms = std.time.milliTimestamp();
-        var dt_sec: f32 = 0;
-        if (self.time_ms) |t| {
-            dt_sec = @intToFloat(f32, now_ms - t) / 1000.0;
-        }
-        io.*.DeltaTime = if (dt_sec <= 0) (1.0 / 60.0) else dt_sec;
-        self.time_ms = now_ms;
-
-        c.igNewFrame();
+    pub fn new_frame(self: *Self) void {
         c.ImGui_ImplGlfw_NewFrame();
+        c.igNewFrame();
     }
 
     pub fn draw(

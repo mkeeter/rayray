@@ -503,6 +503,10 @@ pub const Gui = struct {
     ) void {
         self.setup_render_state(draw_data);
 
+        // Will project scissor/clipping rectangles into framebuffer space
+        const clip_off = draw_data.*.DisplayPos; // (0,0) unless using multi-viewports
+        const clip_scale = draw_data.*.FramebufferScale; // (1,1) unless using retina display which are often (2,2)
+
         // Render to the main view
         const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
             (c.WGPURenderPassColorAttachmentDescriptor){
@@ -521,36 +525,47 @@ pub const Gui = struct {
                 },
             },
         };
+
+        // We'll pack all of the draw buffer data into our buffers here,
+        // to avoid using invalid data in the case of multiple command lists.
+        var sum_vtx_buf_size: usize = 0;
+        var sum_idx_buf_size: usize = 0;
         var n: usize = 0;
         while (n < draw_data.*.CmdListsCount) : (n += 1) {
             const cmd_list = draw_data.*.CmdLists[n];
+            sum_vtx_buf_size += @intCast(usize, cmd_list.*.VtxBuffer.Size) * @sizeOf(c.ImDrawVert);
+            sum_idx_buf_size += @intCast(usize, cmd_list.*.IdxBuffer.Size) * @sizeOf(c.ImDrawIdx);
+        }
+        self.ensure_buf_size(sum_vtx_buf_size, sum_idx_buf_size);
 
+        var vtx_buf_offset: usize = 0;
+        var idx_buf_offset: usize = 0;
+        n = 0;
+        while (n < draw_data.*.CmdListsCount) : (n += 1) {
+            const cmd_list = draw_data.*.CmdLists[n];
+
+            // We've already copied buffer data above
+            var cmd_i: usize = 0;
+
+            // Copy this command list data into the buffers, then accumulate
+            // offset after the draw loop
             const vtx_buf_size = @intCast(usize, cmd_list.*.VtxBuffer.Size) * @sizeOf(c.ImDrawVert);
             const idx_buf_size = @intCast(usize, cmd_list.*.IdxBuffer.Size) * @sizeOf(c.ImDrawIdx);
-
-            // Copy this draw list data into the buffers, after making sure
-            // that they're large enough
-            self.ensure_buf_size(vtx_buf_size, idx_buf_size);
             c.wgpu_queue_write_buffer(
                 self.queue,
                 self.vertex_buf,
-                0,
+                vtx_buf_offset,
                 @ptrCast([*c]const u8, cmd_list.*.VtxBuffer.Data),
                 vtx_buf_size,
             );
             c.wgpu_queue_write_buffer(
                 self.queue,
                 self.index_buf,
-                0,
+                idx_buf_offset,
                 @ptrCast([*c]const u8, cmd_list.*.IdxBuffer.Data),
                 idx_buf_size,
             );
 
-            // Will project scissor/clipping rectangles into framebuffer space
-            const clip_off = draw_data.*.DisplayPos; // (0,0) unless using multi-viewports
-            const clip_scale = draw_data.*.FramebufferScale; // (1,1) unless using retina display which are often (2,2)
-
-            var cmd_i: usize = 0;
             while (cmd_i < cmd_list.*.CmdBuffer.Size) : (cmd_i += 1) {
                 const pcmd = &cmd_list.*.CmdBuffer.Data[cmd_i];
                 std.debug.assert(pcmd.*.UserCallback == null);
@@ -571,18 +586,17 @@ pub const Gui = struct {
                     rpass,
                     0,
                     self.vertex_buf,
-                    0,
+                    vtx_buf_offset,
                     vtx_buf_size,
                 );
                 c.wgpu_render_pass_set_index_buffer(
                     rpass,
                     self.index_buf,
-                    0,
+                    idx_buf_offset,
                     idx_buf_size,
                 );
                 c.wgpu_render_pass_set_bind_group(rpass, 0, bind_group, null, 0);
 
-                // TODO: set scissor rect
                 const clip_rect_x = (pcmd.*.ClipRect.x - clip_off.x) * clip_scale.x;
                 const clip_rect_y = (pcmd.*.ClipRect.y - clip_off.y) * clip_scale.y;
                 const clip_rect_z = (pcmd.*.ClipRect.z - clip_off.x) * clip_scale.x;
@@ -598,6 +612,9 @@ pub const Gui = struct {
                 c.wgpu_render_pass_draw_indexed(rpass, pcmd.*.ElemCount, 1, pcmd.*.IdxOffset, 0, 0);
                 c.wgpu_render_pass_end_pass(rpass);
             }
+
+            vtx_buf_offset += vtx_buf_size;
+            idx_buf_offset += idx_buf_size;
         }
     }
 };

@@ -1,6 +1,6 @@
 // Dear Imgui backend for GLFW and WebGPU
 //
-// The GLFW logic is roughly based on imgui_impl_glfw.cpp;
+// The GLFW logic calls into imgui_impl_glfw.cpp;
 // the WebGPU implementation is custom but inspired by imgui_impl_opengl3.cpp
 const std = @import("std");
 
@@ -71,7 +71,7 @@ pub const Gui = struct {
         c.igSetCurrentContext(ctx);
 
         // We lie and pretend to be OpenGL here
-        _ = c.ImGui_ImplGlfw_InitForOpenGL(window, false);
+        _ = c.ImGui_ImplGlfw_InitForOpenGL(window, true);
 
         ////////////////////////////////////////////////////////////////////////
         // TIME FOR WGPU

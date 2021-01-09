@@ -6,6 +6,7 @@ const std = @import("std");
 
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
+const util = @import("util.zig");
 
 const Font = struct {
     width: u32,
@@ -70,14 +71,30 @@ pub const Gui = struct {
         const ctx = c.igCreateContext(null);
         c.igSetCurrentContext(ctx);
 
-        // We lie and pretend to be OpenGL here
-        _ = c.ImGui_ImplGlfw_InitForOpenGL(window, true);
-
-        ////////////////////////////////////////////////////////////////////////
         // TIME FOR WGPU
         var arena = std.heap.ArenaAllocator.init(alloc);
         const tmp_alloc: *std.mem.Allocator = &arena.allocator;
         defer arena.deinit();
+
+        // We lie and pretend to be OpenGL here
+        _ = c.ImGui_ImplGlfw_InitForOpenGL(window, true);
+
+        // Use the Inconsolata font for the GUI, instead of Proggy Clean
+        var io = c.igGetIO() orelse std.debug.panic("Could not get io\n", .{});
+        var font_ttf: []u8 = try util.file_contents(tmp_alloc, "font/Inconsolata-Regular.ttf");
+        var font_config = c.ImFontConfig_ImFontConfig();
+        defer c.ImFontConfig_destroy(font_config);
+        font_config.*.FontDataOwnedByAtlas = false;
+        _ = c.ImFontAtlas_AddFontFromMemoryTTF(
+            io.*.Fonts,
+            @ptrCast(*c_void, font_ttf.ptr),
+            @intCast(c_int, font_ttf.len),
+            16,
+            font_config,
+            null,
+        );
+
+        ////////////////////////////////////////////////////////////////////////
 
         // This is the only available queue right now
         const queue = c.wgpu_device_get_default_queue(device);
@@ -116,7 +133,6 @@ pub const Gui = struct {
 
         ///////////////////////////////////////////////////////////////////////
         // Font texture
-        var io = c.igGetIO() orelse std.debug.panic("Could not get io\n", .{});
         const font = Font.from_io(io);
         const font_tex = c.wgpu_device_create_texture(
             device,

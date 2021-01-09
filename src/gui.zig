@@ -608,7 +608,17 @@ pub const Gui = struct {
                 c.wgpu_render_pass_set_bind_group(rpass, 0, bind_group, null, 0);
 
                 // TODO: set scissor rect
-                //c.wgpu_render_pass_set_scissor_rect(rpass, ...)
+                const clip_rect_x = (pcmd.*.ClipRect.x - clip_off.x) * clip_scale.x;
+                const clip_rect_y = (pcmd.*.ClipRect.y - clip_off.y) * clip_scale.y;
+                const clip_rect_z = (pcmd.*.ClipRect.z - clip_off.x) * clip_scale.x;
+                const clip_rect_w = (pcmd.*.ClipRect.w - clip_off.y) * clip_scale.y;
+                c.wgpu_render_pass_set_scissor_rect(
+                    rpass,
+                    @floatToInt(u32, clip_rect_x),
+                    @floatToInt(u32, clip_rect_y),
+                    @floatToInt(u32, clip_rect_z - clip_rect_x),
+                    @floatToInt(u32, clip_rect_w - clip_rect_y),
+                );
 
                 c.wgpu_render_pass_draw_indexed(rpass, pcmd.*.ElemCount, 1, pcmd.*.IdxOffset, 0, 0);
                 c.wgpu_render_pass_end_pass(rpass);

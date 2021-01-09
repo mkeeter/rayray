@@ -2,16 +2,14 @@ const std = @import("std");
 
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
+const Options = @import("options.zig").Options;
 
 const Scene = @import("scene.zig").Scene;
 
-// Assume each shape has a material, and both the shape and the material
-// require one slot of extra data.
-const MAX_SHAPES: usize = 512;
-const MAX_SLOTS: usize = MAX_SHAPES * 4;
-
 pub const Raytrace = struct {
     const Self = @This();
+
+    alloc: *std.mem.Allocator,
 
     // GPU handles
     device: c.WGPUDeviceId,
@@ -22,7 +20,12 @@ pub const Raytrace = struct {
     tex_view: c.WGPUTextureViewId,
 
     bind_group: c.WGPUBindGroupId,
+    bind_group_layout: c.WGPUBindGroupLayoutId,
+
+    uniform_buffer: c.WGPUBufferId, // owned by the parent Renderer
     scene_buffer: c.WGPUBufferId,
+    scene_buffer_len: usize,
+
     render_pipeline: c.WGPURenderPipelineId,
 
     scene: Scene,
@@ -30,8 +33,7 @@ pub const Raytrace = struct {
     pub fn init(
         alloc: *std.mem.Allocator,
         device: c.WGPUDeviceId,
-        width: u32,
-        height: u32,
+        options: Options,
         uniform_buf: c.WGPUBufferId,
     ) !Self {
         var arena = std.heap.ArenaAllocator.init(alloc);
@@ -62,28 +64,16 @@ pub const Raytrace = struct {
         defer c.wgpu_shader_module_destroy(frag_shader);
 
         ////////////////////////////////////////////////////////////////////////
-        // Uniform buffers
+        // Make a dummy scene buffer; we'll later resize to fit the scene
+        const scene_buffer_len = 4;
         const scene_buffer = c.wgpu_device_create_buffer(
             device,
             &(c.WGPUBufferDescriptor){
                 .label = "raytrace scene",
-                .size = @sizeOf(c.vec4) * MAX_SLOTS,
+                .size = scene_buffer_len,
                 .usage = c.WGPUBufferUsage_STORAGE | c.WGPUBufferUsage_COPY_DST,
                 .mapped_at_creation = false,
             },
-        );
-
-        // Upload a flattened scene representation to the scene buffer
-        var scene = try Scene.new_cornell_box(alloc);
-
-        const encoded = try scene.encode();
-        defer alloc.free(encoded);
-        c.wgpu_queue_write_buffer(
-            queue,
-            scene_buffer,
-            0,
-            @ptrCast([*c]const u8, encoded.ptr),
-            encoded.len * @sizeOf(c.vec4),
         );
 
         ////////////////////////////////////////////////////////////////////////////
@@ -124,37 +114,6 @@ pub const Raytrace = struct {
                 .label = "bind group layout",
                 .entries = &bind_group_layout_entries,
                 .entries_length = bind_group_layout_entries.len,
-            },
-        );
-        defer c.wgpu_bind_group_layout_destroy(bind_group_layout);
-
-        const bind_group_entries = [_]c.WGPUBindGroupEntry{
-            (c.WGPUBindGroupEntry){
-                .binding = 0,
-                .buffer = uniform_buf,
-                .offset = 0,
-                .size = @sizeOf(c.rayUniforms),
-
-                .sampler = 0, // None
-                .texture_view = 0, // None
-            },
-            (c.WGPUBindGroupEntry){
-                .binding = 1,
-                .buffer = scene_buffer,
-                .offset = 0,
-                .size = @sizeOf(c.vec4) * MAX_SLOTS,
-
-                .sampler = 0, // None
-                .texture_view = 0, // None
-            },
-        };
-        const bind_group = c.wgpu_device_create_bind_group(
-            device,
-            &(c.WGPUBindGroupDescriptor){
-                .label = "bind group",
-                .layout = bind_group_layout,
-                .entries = &bind_group_entries,
-                .entries_length = bind_group_entries.len,
             },
         );
         const bind_group_layouts = [_]c.WGPUBindGroupId{bind_group_layout};
@@ -219,30 +178,26 @@ pub const Raytrace = struct {
 
         ////////////////////////////////////////////////////////////////////////
         var out = Self{
+            .alloc = alloc,
+
             .device = device,
             .queue = queue,
 
-            .bind_group = bind_group,
-            .scene_buffer = scene_buffer,
+            .bind_group = undefined, // assigned in upload_scene() below
+            .bind_group_layout = bind_group_layout,
+            .scene_buffer = undefined, // assigned in upload_scene() below
+            .scene_buffer_len = scene_buffer_len,
+            .uniform_buffer = uniform_buf,
 
             .tex = undefined, // assigned in resize() below
-            .tex_view = undefined,
+            .tex_view = undefined, // assigned in resize() below
 
             .render_pipeline = render_pipeline,
-            .scene = scene,
+            .scene = try Scene.new_simple_scene(alloc),
         };
-        out.resize_(width, height);
+        out.resize_(options.width, options.height, false);
+        try out.upload_scene_(false);
         return out;
-    }
-
-    fn update_uniforms(self: *Self) void {
-        c.wgpu_queue_write_buffer(
-            self.queue,
-            self.uniform_buffer,
-            0,
-            @ptrCast([*c]const u8, &self.uniforms),
-            @sizeOf(c.rayUniforms),
-        );
     }
 
     fn destroy_textures(self: *Self) void {
@@ -255,12 +210,16 @@ pub const Raytrace = struct {
         self.scene.deinit();
 
         c.wgpu_bind_group_destroy(self.bind_group);
+        c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
         c.wgpu_buffer_destroy(self.scene_buffer);
 
         c.wgpu_render_pipeline_destroy(self.render_pipeline);
     }
 
-    fn resize_(self: *Self, width: u32, height: u32) void {
+    fn resize_(self: *Self, width: u32, height: u32, del_prev_tex: bool) void {
+        if (del_prev_tex) {
+            self.destroy_textures();
+        }
         self.tex = c.wgpu_device_create_texture(
             self.device,
             &(c.WGPUTextureDescriptor){
@@ -297,8 +256,72 @@ pub const Raytrace = struct {
     }
 
     pub fn resize(self: *Self, width: u32, height: u32) void {
-        self.destroy_textures();
-        self.resize_(width, height);
+        self.resize_(width, height, true);
+    }
+
+    // Copies the scene from self.scene to the GPU, rebuilding the bind
+    // group if the buffer has been resized (which would invalidate it)
+    fn upload_scene_(self: *Self, del_prev: bool) !void {
+        const encoded = try self.scene.encode();
+        defer self.alloc.free(encoded);
+
+        const scene_buffer_len = encoded.len * @sizeOf(c.vec4);
+
+        if (scene_buffer_len > self.scene_buffer_len) {
+            if (del_prev) {
+                c.wgpu_buffer_destroy(self.scene_buffer);
+                c.wgpu_bind_group_destroy(self.bind_group);
+            }
+            self.scene_buffer = c.wgpu_device_create_buffer(
+                self.device,
+                &(c.WGPUBufferDescriptor){
+                    .label = "raytrace scene",
+                    .size = scene_buffer_len,
+                    .usage = c.WGPUBufferUsage_STORAGE | c.WGPUBufferUsage_COPY_DST,
+                    .mapped_at_creation = false,
+                },
+            );
+            self.scene_buffer_len = scene_buffer_len;
+
+            // Rebuild the bind group as well
+            const bind_group_entries = [_]c.WGPUBindGroupEntry{
+                (c.WGPUBindGroupEntry){
+                    .binding = 0,
+                    .buffer = self.uniform_buffer,
+                    .offset = 0,
+                    .size = @sizeOf(c.rayUniforms),
+
+                    .sampler = 0, // None
+                    .texture_view = 0, // None
+                },
+                (c.WGPUBindGroupEntry){
+                    .binding = 1,
+                    .buffer = self.scene_buffer,
+                    .offset = 0,
+                    .size = self.scene_buffer_len,
+
+                    .sampler = 0, // None
+                    .texture_view = 0, // None
+                },
+            };
+            self.bind_group = c.wgpu_device_create_bind_group(
+                self.device,
+                &(c.WGPUBindGroupDescriptor){
+                    .label = "bind group",
+                    .layout = self.bind_group_layout,
+                    .entries = &bind_group_entries,
+                    .entries_length = bind_group_entries.len,
+                },
+            );
+        }
+
+        c.wgpu_queue_write_buffer(
+            self.queue,
+            self.scene_buffer,
+            0,
+            @ptrCast([*c]const u8, encoded.ptr),
+            encoded.len * @sizeOf(c.vec4),
+        );
     }
 
     pub fn draw(self: *Self, first: bool) void {

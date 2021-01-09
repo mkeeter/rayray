@@ -23,10 +23,10 @@ pub const Window = struct {
     renderer: Renderer,
     gui: Gui,
 
-    pub fn init(alloc: *std.mem.Allocator, opt: Options, name: [*c]const u8) !*Self {
+    pub fn init(alloc: *std.mem.Allocator, options_: Options, name: [*c]const u8) !*Self {
         const window = c.glfwCreateWindow(
-            @intCast(c_int, opt.width),
-            @intCast(c_int, opt.height),
+            @intCast(c_int, options_.width),
+            @intCast(c_int, options_.height),
             name,
             null,
             null,
@@ -39,8 +39,9 @@ pub const Window = struct {
         var width_: c_int = undefined;
         var height_: c_int = undefined;
         c.glfwGetFramebufferSize(window, &width_, &height_);
-        const width = @intCast(u32, width_);
-        const height = @intCast(u32, height_);
+        var options = options_;
+        options.width = @intCast(u32, width_);
+        options.height = @intCast(u32, height_);
 
         // Extract the WGPU Surface from the platform-specific window
         const platform = builtin.os.tag;
@@ -99,10 +100,10 @@ pub const Window = struct {
             .queue = c.wgpu_device_get_default_queue(device),
             .surface = surface,
             .swap_chain = undefined,
-            .renderer = try Renderer.init(alloc, opt, width, height, device),
+            .renderer = try Renderer.init(alloc, options, device),
             .gui = try Gui.init(alloc, window, device),
         };
-        out.resize_swap_chain(width, height);
+        out.resize_swap_chain(options.width, options.height);
         return out;
     }
 
@@ -140,24 +141,9 @@ pub const Window = struct {
         if (true) {
             c.igShowDemoWindow(null);
         }
-        var clear = false;
-        if (c.igBegin("Camera", null, 0)) {
-            const ui_changed = [_]bool{
-                c.igDragFloat3("pos", @ptrCast([*c]f32, &self.renderer.uniforms.camera.pos), 0.05, -10, 10, "%.1f", 0),
-                c.igDragFloat3("target", @ptrCast([*c]f32, &self.renderer.uniforms.camera.target), 0.05, -10, 10, "%.1f", 0),
-                c.igDragFloat3("up", @ptrCast([*c]f32, &self.renderer.uniforms.camera.up), 0.1, -1, 1, "%.1f", 0),
-                c.igDragFloat("perspective", &self.renderer.uniforms.camera.perspective, 0.01, 0, 1, "%.2f", 0),
-                c.igDragFloat("defocus", &self.renderer.uniforms.camera.defocus, 0.001, 0, 0.2, "%.2f", 0),
-                c.igDragFloat("focal length", &self.renderer.uniforms.camera.focal_distance, 0.01, 0, 10, "%.2f", 0),
-                c.igDragFloat("scale", &self.renderer.uniforms.camera.scale, 0.05, 0, 2, "%.1f", 0),
-            };
-            for (ui_changed) |b| {
-                clear = b or clear;
-            }
-        }
-        c.igEnd();
+        const changed = self.renderer.draw_gui();
 
-        self.renderer.draw(clear, next_texture, cmd_encoder);
+        self.renderer.draw(changed, next_texture, cmd_encoder);
         self.gui.draw(next_texture, cmd_encoder);
 
         const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);

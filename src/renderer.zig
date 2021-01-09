@@ -25,8 +25,6 @@ pub const Renderer = struct {
     pub fn init(
         alloc: *std.mem.Allocator,
         options: Options,
-        width: u32,
-        height: u32,
         device: c.WGPUDeviceId,
     ) !Self {
         ////////////////////////////////////////////////////////////////////////
@@ -41,7 +39,7 @@ pub const Renderer = struct {
             },
         );
 
-        const rt = try Raytrace.init(alloc, device, width, height, uniform_buf);
+        const rt = try Raytrace.init(alloc, device, options, uniform_buf);
         const blit = try Blit.init(alloc, device, rt.tex_view, uniform_buf);
 
         var out = Renderer{
@@ -52,8 +50,8 @@ pub const Renderer = struct {
             .blit = blit,
 
             .uniforms = .{
-                .width_px = width,
-                .height_px = height,
+                .width_px = options.width,
+                .height_px = options.height,
                 .samples = 0,
                 .samples_per_frame = options.samples_per_frame,
 
@@ -76,6 +74,28 @@ pub const Renderer = struct {
             @ptrCast([*c]const u8, &self.uniforms),
             @sizeOf(c.rayUniforms),
         );
+    }
+
+    pub fn draw_gui(self: *Self) bool {
+        const open = c.igBegin("Camera", null, 0);
+        defer c.igEnd();
+        if (open) {
+            const ui_changed = [_]bool{
+                c.igDragFloat3("pos", @ptrCast([*c]f32, &self.uniforms.camera.pos), 0.05, -10, 10, "%.1f", 0),
+                c.igDragFloat3("target", @ptrCast([*c]f32, &self.uniforms.camera.target), 0.05, -10, 10, "%.1f", 0),
+                c.igDragFloat3("up", @ptrCast([*c]f32, &self.uniforms.camera.up), 0.1, -1, 1, "%.1f", 0),
+                c.igDragFloat("perspective", &self.uniforms.camera.perspective, 0.01, 0, 1, "%.2f", 0),
+                c.igDragFloat("defocus", &self.uniforms.camera.defocus, 0.001, 0, 0.2, "%.2f", 0),
+                c.igDragFloat("focal length", &self.uniforms.camera.focal_distance, 0.01, 0, 10, "%.2f", 0),
+                c.igDragFloat("scale", &self.uniforms.camera.scale, 0.05, 0, 2, "%.1f", 0),
+            };
+            for (ui_changed) |b| {
+                if (b) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     pub fn draw(

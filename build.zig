@@ -17,6 +17,7 @@ pub fn build(b: *Builder) void {
 
     // Libraries!
     exe.linkSystemLibrary("glfw3");
+    exe.linkSystemLibrary("freetype2");
     exe.linkSystemLibrary("stdc++"); // needed for shaderc
 
     exe.addLibPath("vendor/wgpu");
@@ -43,6 +44,8 @@ pub fn build(b: *Builder) void {
         "vendor/cimgui/imgui/imgui_demo.cpp",
         "vendor/cimgui/imgui/imgui_widgets.cpp",
         "vendor/cimgui/imgui/examples/imgui_impl_glfw.cpp",
+        "vendor/cimgui/imgui/misc/freetype/imgui_freetype.cpp",
+        "vendor/cimgui_ft/cimgui_ft.cpp",
     };
     exe.addCSourceFiles(&imgui_files, &c_args);
 

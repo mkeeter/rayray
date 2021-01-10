@@ -11,6 +11,7 @@ pub usingnamespace @cImport({
     @cDefine("ImDrawIdx", "unsigned int"); // index buffer must be 4-aligned
     @cInclude("cimgui/cimgui.h");
     @cInclude("cimgui/generator/output/cimgui_impl.h");
+    @cInclude("cimgui_ft/cimgui_ft.h");
 
     @cInclude("extern/rayray.h");
 

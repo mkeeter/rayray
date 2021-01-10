@@ -89,10 +89,12 @@ pub const Gui = struct {
             io.*.Fonts,
             @ptrCast(*c_void, font_ttf.ptr),
             @intCast(c_int, font_ttf.len),
-            16,
+            32,
             font_config,
             null,
         );
+        _ = c.igFt_BuildFontAtlas(io.*.Fonts, 0);
+        io.*.FontGlobalScale = 0.5;
 
         ////////////////////////////////////////////////////////////////////////
 

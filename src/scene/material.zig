@@ -21,6 +21,9 @@ pub const Diffuse = struct {
     fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
         return self.color.encode(buf);
     }
+    fn draw_gui(self: *Self) bool {
+        return c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
+    }
 };
 
 pub const Light = struct {
@@ -29,6 +32,9 @@ pub const Light = struct {
     color: Color,
     fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
         return self.color.encode(buf);
+    }
+    fn draw_gui(self: *Self) bool {
+        return c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
     }
 };
 
@@ -45,6 +51,11 @@ pub const Metal = struct {
             .w = self.fuzz,
         });
     }
+    fn draw_gui(self: *Self) bool {
+        const a = c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
+        const b = c.igDragFloat3("fuzz", &self.fuzz, 0.01, 0, 10, "%.2f", 0);
+        return a or b;
+    }
 };
 
 pub const Glass = struct {
@@ -59,6 +70,11 @@ pub const Glass = struct {
             .z = self.color.b,
             .w = self.eta,
         });
+    }
+    fn draw_gui(self: *Self) bool {
+        const a = c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
+        const b = c.igDragFloat("eta", &self.eta, 0.01, 1, 2, "%.2f", 0);
+        return a or b;
     }
 };
 
@@ -173,6 +189,13 @@ pub const Material = union(enum) {
             }
             c.igEndCombo();
         }
+
+        changed = switch (self.*) {
+            .Diffuse => self.Diffuse.draw_gui(),
+            .Light => self.Light.draw_gui(),
+            .Metal => self.Metal.draw_gui(),
+            .Glass => self.Glass.draw_gui(),
+        } or changed;
 
         return changed;
     }

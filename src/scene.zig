@@ -379,11 +379,12 @@ pub const Scene = struct {
             if (i > 0) {
                 c.igSeparator();
             }
-            c.igText("%i: ", i);
-            c.igSameLine(0, 0);
+            c.igText("Material %i:", i);
+            c.igIndent(c.igGetTreeNodeToLabelSpacing());
             c.igPushIDInt(@intCast(c_int, i));
             changed = (try self.materials.items[i].draw_gui()) or changed;
             c.igPopID();
+            c.igUnindent(c.igGetTreeNodeToLabelSpacing());
         }
         return changed;
     }

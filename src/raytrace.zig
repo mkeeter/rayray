@@ -193,7 +193,7 @@ pub const Raytrace = struct {
             .tex_view = undefined, // assigned in resize() below
 
             .render_pipeline = render_pipeline,
-            .scene = try Scene.new_cornell_box(alloc),
+            .scene = try Scene.new_simple_scene(alloc),
         };
         out.resize_(options.width, options.height, false);
         try out.upload_scene_(false);
@@ -324,11 +324,19 @@ pub const Raytrace = struct {
         );
     }
 
-    pub fn draw(self: *Self, first: bool) void {
+    fn upload_scene(self: *Self) !void {
+        try self.upload_scene_(true);
+    }
+
+    pub fn draw(self: *Self, first: bool) !void {
         const cmd_encoder = c.wgpu_device_create_command_encoder(
             self.device,
             &(c.WGPUCommandEncoderDescriptor){ .label = "raytrace encoder" },
         );
+
+        if (first) {
+            try self.upload_scene();
+        }
 
         const load_op = if (first)
             c.WGPULoadOp._Clear

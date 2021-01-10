@@ -66,7 +66,7 @@ pub const Renderer = struct {
         return out;
     }
 
-    fn update_uniforms(self: *Self) void {
+    fn update_uniforms(self: *const Self) void {
         c.wgpu_queue_write_buffer(
             self.queue,
             self.uniform_buf,
@@ -76,26 +76,31 @@ pub const Renderer = struct {
         );
     }
 
-    pub fn draw_gui(self: *Self) bool {
-        const open = c.igBegin("Camera", null, 0);
-        defer c.igEnd();
-        if (open) {
-            const ui_changed = [_]bool{
-                c.igDragFloat3("pos", @ptrCast([*c]f32, &self.uniforms.camera.pos), 0.05, -10, 10, "%.1f", 0),
-                c.igDragFloat3("target", @ptrCast([*c]f32, &self.uniforms.camera.target), 0.05, -10, 10, "%.1f", 0),
-                c.igDragFloat3("up", @ptrCast([*c]f32, &self.uniforms.camera.up), 0.1, -1, 1, "%.1f", 0),
-                c.igDragFloat("perspective", &self.uniforms.camera.perspective, 0.01, 0, 1, "%.2f", 0),
-                c.igDragFloat("defocus", &self.uniforms.camera.defocus, 0.001, 0, 0.2, "%.2f", 0),
-                c.igDragFloat("focal length", &self.uniforms.camera.focal_distance, 0.01, 0, 10, "%.2f", 0),
-                c.igDragFloat("scale", &self.uniforms.camera.scale, 0.05, 0, 2, "%.1f", 0),
-            };
-            for (ui_changed) |b| {
-                if (b) {
-                    return true;
+    pub fn draw_gui(self: *Self) !bool {
+        var changed = false;
+        if (c.igBegin("rayray", null, 0)) {
+            if (c.igCollapsingHeaderBoolPtr("Camera", null, 0)) {
+                const ui_changed = [_]bool{
+                    c.igDragFloat3("pos", @ptrCast([*c]f32, &self.uniforms.camera.pos), 0.05, -10, 10, "%.1f", 0),
+                    c.igDragFloat3("target", @ptrCast([*c]f32, &self.uniforms.camera.target), 0.05, -10, 10, "%.1f", 0),
+                    c.igDragFloat3("up", @ptrCast([*c]f32, &self.uniforms.camera.up), 0.1, -1, 1, "%.1f", 0),
+                    c.igDragFloat("perspective", &self.uniforms.camera.perspective, 0.01, 0, 1, "%.2f", 0),
+                    c.igDragFloat("defocus", &self.uniforms.camera.defocus, 0.001, 0, 0.2, "%.2f", 0),
+                    c.igDragFloat("focal length", &self.uniforms.camera.focal_distance, 0.01, 0, 10, "%.2f", 0),
+                    c.igDragFloat("scale", &self.uniforms.camera.scale, 0.05, 0, 2, "%.1f", 0),
+                };
+                for (ui_changed) |b| {
+                    changed = b or changed;
                 }
             }
         }
-        return false;
+
+        if (c.igCollapsingHeaderBoolPtr("Materials", null, 0)) {
+            changed = (try self.raytrace.scene.draw_gui()) or changed;
+        }
+
+        c.igEnd();
+        return changed;
     }
 
     pub fn draw(
@@ -103,7 +108,7 @@ pub const Renderer = struct {
         clear: bool,
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,
-    ) void {
+    ) !void {
         if (clear) {
             self.uniforms.samples = 0;
         }
@@ -120,7 +125,7 @@ pub const Renderer = struct {
         }
 
         // Cast another set of rays, one per pixel
-        self.raytrace.draw(self.uniforms.samples == 0);
+        try self.raytrace.draw(self.uniforms.samples == 0);
         self.uniforms.samples += self.uniforms.samples_per_frame;
         self.frame += 1;
 

@@ -254,7 +254,7 @@ pub const Blit = struct {
     }
 
     pub fn draw(
-        self: *Self,
+        self: *const Self,
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) void {

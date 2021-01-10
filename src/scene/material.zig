@@ -81,25 +81,25 @@ pub const Material = union(enum) {
 
     pub fn new_diffuse(r: f32, g: f32, b: f32) Self {
         return .{
-            .Diffuse = Diffuse{ .color = .{ .r = r, .g = g, .b = b } },
+            .Diffuse = .{ .color = .{ .r = r, .g = g, .b = b } },
         };
     }
 
     pub fn new_light(r: f32, g: f32, b: f32) Self {
         return .{
-            .Light = Light{ .color = .{ .r = r, .g = g, .b = b } },
+            .Light = .{ .color = .{ .r = r, .g = g, .b = b } },
         };
     }
 
     pub fn new_metal(r: f32, g: f32, b: f32, fuzz: f32) Self {
         return .{
-            .Metal = Metal{ .color = .{ .r = r, .g = g, .b = b }, .fuzz = fuzz },
+            .Metal = .{ .color = .{ .r = r, .g = g, .b = b }, .fuzz = fuzz },
         };
     }
 
     pub fn new_glass(r: f32, g: f32, b: f32, eta: f32) Self {
         return .{
-            .Glass = Glass{ .color = .{ .r = r, .g = g, .b = b }, .eta = eta },
+            .Glass = .{ .color = .{ .r = r, .g = g, .b = b }, .eta = eta },
         };
     }
 
@@ -112,5 +112,68 @@ pub const Material = union(enum) {
             .Metal => |m| m.encode(buf),
             .Glass => |m| m.encode(buf),
         };
+    }
+
+    fn color(self: *const Self) Color {
+        return switch (self.*) {
+            .Diffuse => |m| m.color,
+            .Light => |m| m.color,
+            .Metal => |m| m.color,
+            .Glass => |m| m.color,
+        };
+    }
+
+    pub fn draw_gui(self: *Self) !bool {
+        var changed = false;
+        var tags = [_]@TagType(Self){ .Diffuse, .Light, .Metal, .Glass };
+
+        var buf: [128]u8 = undefined;
+        var fba = std.heap.FixedBufferAllocator.init(buf[0..]);
+
+        // Copy the slice to a null-terminated string for C API
+        const my_name = try fba.allocator.dupeZ(u8, @tagName(self.*));
+
+        if (c.igBeginCombo("", @ptrCast([*c]const u8, my_name.ptr), 0)) {
+            var i: usize = 0;
+            while (i < tags.len) : (i += 1) {
+                const is_selected = tags[i] == self.*;
+
+                const t = try fba.allocator.dupeZ(u8, @tagName(tags[i]));
+                defer fba.allocator.free(t);
+                if (c.igSelectableBool(t, is_selected, 0, .{ .x = 0, .y = 0 })) {
+                    changed = true;
+                    switch (tags[i]) {
+                        .Diffuse => self.* = .{
+                            .Diffuse = .{
+                                .color = self.color(),
+                            },
+                        },
+                        .Light => self.* = .{
+                            .Light = .{
+                                .color = self.color(),
+                            },
+                        },
+                        .Metal => self.* = .{
+                            .Metal = .{
+                                .color = self.color(),
+                                .fuzz = 0.1,
+                            },
+                        },
+                        .Glass => self.* = .{
+                            .Glass = .{
+                                .color = self.color(),
+                                .eta = 0.15,
+                            },
+                        },
+                    }
+                }
+                if (is_selected) {
+                    c.igSetItemDefaultFocus();
+                }
+            }
+            c.igEndCombo();
+        }
+
+        return changed;
     }
 };

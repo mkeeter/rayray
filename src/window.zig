@@ -114,7 +114,7 @@ pub const Window = struct {
         self.alloc.destroy(self);
     }
 
-    pub fn should_close(self: *Self) bool {
+    pub fn should_close(self: *const Self) bool {
         return c.glfwWindowShouldClose(self.window) != 0;
     }
 
@@ -124,7 +124,7 @@ pub const Window = struct {
         data: ?*c_void,
     ) void {}
 
-    fn draw(self: *Self) void {
+    fn draw(self: *Self) !void {
         const next_texture = c.wgpu_swap_chain_get_next_texture(self.swap_chain);
         if (next_texture.view_id == 0) {
             std.debug.panic("Cannot acquire next swap chain texture", .{});
@@ -141,9 +141,9 @@ pub const Window = struct {
         if (true) {
             c.igShowDemoWindow(null);
         }
-        const changed = self.renderer.draw_gui();
+        const changed = try self.renderer.draw_gui();
 
-        self.renderer.draw(changed, next_texture, cmd_encoder);
+        try self.renderer.draw(changed, next_texture, cmd_encoder);
         self.gui.draw(next_texture, cmd_encoder);
 
         const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);
@@ -152,9 +152,9 @@ pub const Window = struct {
         c.wgpu_swap_chain_present(self.swap_chain);
     }
 
-    pub fn run(self: *Self) void {
+    pub fn run(self: *Self) !void {
         while (!self.should_close()) {
-            self.draw();
+            try self.draw();
             c.glfwPollEvents();
         }
         std.debug.print("\n", .{});

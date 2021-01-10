@@ -379,7 +379,7 @@ pub const Gui = struct {
         return out;
     }
 
-    fn bind_group_for(self: *Self, tex_view: c.WGPUTextureViewId) c.WGPUBindGroupId {
+    fn bind_group_for(self: *const Self, tex_view: c.WGPUTextureViewId) c.WGPUBindGroupId {
         const bind_group_entries = [_]c.WGPUBindGroupEntry{
             (c.WGPUBindGroupEntry){
                 .binding = 0,
@@ -474,7 +474,7 @@ pub const Gui = struct {
         self.ensure_buf_size_(vtx_bytes, num_index, true);
     }
 
-    pub fn new_frame(self: *Self) void {
+    pub fn new_frame(self: *const Self) void {
         c.ImGui_ImplGlfw_NewFrame();
         c.igNewFrame();
     }
@@ -489,7 +489,7 @@ pub const Gui = struct {
         self.render_draw_data(next_texture, cmd_encoder, draw_data);
     }
 
-    fn setup_render_state(self: *Self, draw_data: [*c]c.ImDrawData) void {
+    fn setup_render_state(self: *const Self, draw_data: [*c]c.ImDrawData) void {
         const L = draw_data.*.DisplayPos.x;
         const R = draw_data.*.DisplayPos.x + draw_data.*.DisplaySize.x;
         const T = draw_data.*.DisplayPos.y;

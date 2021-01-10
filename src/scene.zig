@@ -309,7 +309,7 @@ pub const Scene = struct {
         self.materials.deinit();
     }
 
-    pub fn encode(self: *Self) ![]c.vec4 {
+    pub fn encode(self: *const Self) ![]c.vec4 {
         const offset = self.shapes.items.len + 1;
 
         // num shapes | 0 | 0 | 0
@@ -370,5 +370,21 @@ pub const Scene = struct {
             std.debug.print("\n", .{});
         }
         return stack.toOwnedSlice();
+    }
+
+    pub fn draw_gui(self: *Self) !bool {
+        var changed = false;
+        var i: usize = 0;
+        while (i < self.materials.items.len) : (i += 1) {
+            if (i > 0) {
+                c.igSeparator();
+            }
+            c.igText("%i: ", i);
+            c.igSameLine(0, 0);
+            c.igPushIDInt(@intCast(c_int, i));
+            changed = (try self.materials.items[i].draw_gui()) or changed;
+            c.igPopID();
+        }
+        return changed;
     }
 };

@@ -326,7 +326,7 @@ pub const Scene = struct {
         var stack = std.ArrayList(c.vec4).init(self.alloc);
         defer stack.deinit();
         try stack.append(.{
-            .x = @intToFloat(f32, self.shapes.items.len),
+            .x = @bitCast(f32, @intCast(u32, self.shapes.items.len)),
             .y = 0,
             .z = 0,
             .w = 0,
@@ -348,10 +348,10 @@ pub const Scene = struct {
             // Encode the shape's primary key
             const m = self.materials.items[s.mat];
             try stack.append(.{
-                .x = @intToFloat(f32, s.prim.tag()), // kind
-                .y = @intToFloat(f32, offset + heap.items.len), // data offset
-                .z = @intToFloat(f32, mat_indexes.items[s.mat]), // mat
-                .w = @intToFloat(f32, m.tag()),
+                .x = @bitCast(f32, s.prim.tag()), // kind
+                .y = @bitCast(f32, @intCast(u32, offset + heap.items.len)), // data offset
+                .z = @bitCast(f32, mat_indexes.items[s.mat]), // mat index
+                .w = @bitCast(f32, m.tag()), // mat tag
             });
             // Encode any data that the shape needs
             try s.encode(&heap);

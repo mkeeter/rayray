@@ -106,8 +106,8 @@ float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
 }
 
 vec3 norm(vec4 pos, vec4 shape) {
-    uint offset = uint(shape.y);
-    switch (uint(shape.x)) {
+    uint offset = floatBitsToUint(shape.y);
+    switch (floatBitsToUint(shape.x)) {
         case SHAPE_SPHERE: {
             vec4 d = scene_data[offset];
             return normalize(pos.xyz - d.xyz);
@@ -129,16 +129,13 @@ vec3 norm(vec4 pos, vec4 shape) {
 vec4 trace(vec4 start, vec3 dir) {
     float best_dist = 1e8;
     vec4 best_hit = vec4(0);
-    const uint num_shapes = uint(scene_data[0].x);
-
-    // Avoid colliding with yourself
-    uint prev_shape = uint(start.w);
+    const uint num_shapes = floatBitsToUint(scene_data[0].x);
 
     for (uint i=1; i <= num_shapes; i += 1) {
         vec4 shape = scene_data[i];
-        uint offset = uint(shape.y);
+        uint offset = floatBitsToUint(shape.y);
         float dist;
-        switch ((uint(shape.x))) {
+        switch (floatBitsToUint(shape.x)) {
             case SHAPE_SPHERE: {
                 vec4 d = scene_data[offset];
                 dist = hit_sphere(start.xyz, dir, d.xyz, d.w);
@@ -188,8 +185,8 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
         vec3 norm = norm(pos, shape);
 
         // Look at the material and decide whether to terminate
-        uint mat_offset = uint(shape.z);
-        uint mat_type = uint(shape.w);
+        uint mat_offset = floatBitsToUint(shape.z);
+        uint mat_type = floatBitsToUint(shape.w);
 
         switch (mat_type) {
             // When we hit a light, return immediately

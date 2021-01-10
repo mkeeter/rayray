@@ -14,6 +14,11 @@ layout(set=0, binding=1) buffer Scene {
 #define SURFACE_EPSILON 1e-6
 #define NORMAL_EPSILON  1e-8
 
+struct hit_t {
+    vec3 pos;
+    uint index;
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Jenkins hash function, specialized for a uint key
 uint32_t hash(uint key) {
@@ -105,12 +110,12 @@ float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     }
 }
 
-vec3 norm(vec4 pos, vec4 shape) {
+vec3 norm(vec3 pos, vec4 shape) {
     uint offset = floatBitsToUint(shape.y);
     switch (floatBitsToUint(shape.x)) {
         case SHAPE_SPHERE: {
             vec4 d = scene_data[offset];
-            return normalize(pos.xyz - d.xyz);
+            return normalize(pos - d.xyz);
         }
         case SHAPE_INFINITE_PLANE: // fallthrough
         case SHAPE_FINITE_PLANE: {
@@ -125,10 +130,10 @@ vec3 norm(vec4 pos, vec4 shape) {
 ////////////////////////////////////////////////////////////////////////////////
 // The lowest-level building block:
 //  Raytraces to the next object in the scene,
-//  returning a vec4 of [end, id]
-vec4 trace(vec4 start, vec3 dir) {
+//  returning a hit_t object of [pos, index]
+hit_t trace(vec3 start, vec3 dir) {
     float best_dist = 1e8;
-    vec4 best_hit = vec4(0);
+    hit_t best_hit = {vec3(0), 0};
     const uint num_shapes = floatBitsToUint(scene_data[0].x);
 
     for (uint i=1; i <= num_shapes; i += 1) {
@@ -138,12 +143,12 @@ vec4 trace(vec4 start, vec3 dir) {
         switch (floatBitsToUint(shape.x)) {
             case SHAPE_SPHERE: {
                 vec4 d = scene_data[offset];
-                dist = hit_sphere(start.xyz, dir, d.xyz, d.w);
+                dist = hit_sphere(start, dir, d.xyz, d.w);
                 break;
             }
             case SHAPE_INFINITE_PLANE: {
                 vec4 d = scene_data[offset];
-                dist = hit_plane(start.xyz, dir, d.xyz, d.w);
+                dist = hit_plane(start, dir, d.xyz, d.w);
                 break;
             }
             default: // unimplemented shape
@@ -151,9 +156,10 @@ vec4 trace(vec4 start, vec3 dir) {
         }
         if (dist > SURFACE_EPSILON && dist < best_dist) {
             best_dist = dist;
-            best_hit = vec4(start.xyz + dir*dist, i);
+            best_hit.index = i;
         }
     }
+    best_hit.pos = start + dir*best_dist;
     return best_hit;
 }
 
@@ -169,20 +175,21 @@ vec3 sanitize_dir(vec3 dir, vec3 norm) {
 }
 
 #define BOUNCES 6
-vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
+vec3 bounce(vec3 pos, vec3 dir, inout uint seed) {
     vec3 color = vec3(1);
+    hit_t hit = {pos, 0};
     for (uint i=0; i < BOUNCES; ++i) {
         // Walk to the next object in the scene
-        pos = trace(pos, dir);
+        hit = trace(hit.pos, dir);
 
         // If we escaped the world, then terminate immediately
-        if (pos.w == 0) {
+        if (hit.index == 0) {
             return vec3(0);
         }
 
         // Extract the shape so we can pull the material
-        vec4 shape = scene_data[uint(pos.w)];
-        vec3 norm = norm(pos, shape);
+        vec4 shape = scene_data[hit.index];
+        vec3 norm = norm(hit.pos, shape);
 
         // Look at the material and decide whether to terminate
         uint mat_offset = floatBitsToUint(shape.z);
@@ -294,6 +301,6 @@ void main() {
         dir = normalize(target - start);
 
         // Actually do the raytracing here, accumulating color
-        fragColor += vec4(bounce(vec4(start, 0), dir, seed), 1);
+        fragColor += vec4(bounce(start, dir, seed), 1);
     }
 }

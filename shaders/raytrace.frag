@@ -190,22 +190,19 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
         // Look at the material and decide whether to terminate
         vec4 mat = scene_data[uint(shape.z)];
         uint mat_type = uint(mat.x);
-        uint mat_offset; // only used in some materials
+        uint mat_offset = uint(mat.y);
 
         switch (mat_type) {
             // When we hit a light, return immediately
             case MAT_LIGHT:
-                // Light color is tightly packed in the yzw terms
-                return color * mat.yzw;
+                return color * scene_data[mat_offset].xyz;;
 
             // Otherwise, handle the various material types
             case MAT_DIFFUSE:
-                // Diffuse color is tightly packed in the yzw terms
-                color *= mat.yzw;
+                color *= scene_data[mat_offset].xyz;
                 dir = sanitize_dir(norm + rand3_on_sphere(seed), norm);
                 break;
             case MAT_METAL:
-                mat_offset = uint(mat.y);
                 color *= scene_data[mat_offset].xyz;
                 dir -= norm * dot(norm, dir)*2;
                 float fuzz = scene_data[mat_offset].w;
@@ -220,7 +217,6 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 break;
             case MAT_GLASS:
                 // This doesn't support nested materials with different etas!
-                mat_offset = uint(mat.y);
                 float eta = scene_data[mat_offset].w;
                 // If we're entering the shape, then decide whether to reflect
                 // or refract based on the incoming angle

@@ -42,6 +42,7 @@ uint32_t hash_fast(uint rng_state) {
     return rng_state;
 }
 
+// Returns a pseudorandom value between -1 and 1
 float rand(inout uint seed) {
     seed = hash_fast(seed);
 
@@ -55,7 +56,7 @@ float rand(inout uint seed) {
     m |= ieeeOne;                          // Add fractional part to 1.0
 
     float  f = uintBitsToFloat(m);         // Range [1:2]
-    return f - 1.0;                        // Range [0:1]
+    return 2*f - 3.0;                      // Range [-1:1]
 }
 
 vec3 rand3(inout uint seed) {
@@ -69,7 +70,7 @@ vec2 rand2(inout uint seed) {
 // Returns a coordinate uniformly distributed on a sphere's surface
 vec3 rand3_on_sphere(inout uint seed) {
     while (true) {
-        vec3 v = rand3(seed)*2 - 1;
+        vec3 v = rand3(seed);
         if (length(v) <= 1.0 && length(v) > NORMAL_EPSILON) {
             return normalize(v);
         }
@@ -80,7 +81,7 @@ vec3 rand3_on_sphere(inout uint seed) {
 // Returns a coordinate uniformly distributed in a circle of radius 1
 vec2 rand2_in_circle(inout uint seed) {
     while (true) {
-        vec2 v = rand2(seed)*2 - 1;
+        vec2 v = rand2(seed);
         if (length(v) <= 1.0) {
             return v;
         }
@@ -242,7 +243,8 @@ vec3 bounce(vec3 pos, vec3 dir, inout uint seed) {
                     r0 = r0*r0;
                     float reflectance = r0 + (1 - r0) * pow((1 - cosine), 5);
 
-                    if (reflectance > rand(seed)) {
+                    // reflectance is [0-1], so bias rand() to match
+                    if (reflectance > (rand(seed) + 1)*0.5) {
                         dir -= norm * dot(norm, dir)*2;
                     } else {
                         dir = refract(dir, norm, eta);

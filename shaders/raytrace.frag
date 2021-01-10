@@ -166,7 +166,6 @@ hit_t trace(vec3 start, vec3 dir) {
     return t;
 }
 
-
 // Normalize, snapping to the normal if the vector is pathologically short
 vec3 sanitize_dir(vec3 dir, vec3 norm) {
     float len = length(dir);
@@ -268,8 +267,7 @@ void main() {
 
     // This is the ray direction from the center of the camera,
     // without any bias due to perspective
-    const vec3 camera_delta = u.camera.target - u.camera.pos;
-    const vec3 camera_dir = normalize(camera_delta);
+    const vec3 camera_dir = normalize(u.camera.target - u.camera.pos);
 
     // Build an orthonormal frame for the camera
     const vec3 camera_dx = cross(camera_dir, u.camera.up);

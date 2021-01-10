@@ -312,15 +312,25 @@ pub const Scene = struct {
     pub fn encode(self: *const Self) ![]c.vec4 {
         const offset = self.shapes.items.len + 1;
 
-        // num shapes | 0 | 0 | 0
-        // shape type | data offset | mat offset | 0
-        // shape type | data offset | mat offset | 0
-        // shape type | data offset | mat offset | 0
-        // ...
-        // mat data
-        // ...
-        // shape data
-        // ...
+        // Data is packed into an array of vec4s in a GPU buffer:
+        //  num shapes | 0 | 0 | 0
+        //  shape type | data offset | mat offset | mat type
+        //  shape type | data offset | mat offset | mat type
+        //  shape type | data offset | mat offset | mat type
+        //  ...
+        //  mat data (arbitrary)
+        //  ...
+        //  shape data
+        //  ...
+        //
+        // Shape data is split between the "stack" (indexed in order, tightly
+        // packed) and "heap" (randomly indexed, arbitrary data).
+        //
+        // Each shape stores an offset for the shape and material data, as well
+        // as tags for shape and material type.
+        //
+        // (strictly speaking, the mat tag is assocated belong with the
+        // material, but we had a spare slot in the vec4, so this saves memory)
 
         // Store the list length as the first element
         var stack = std.ArrayList(c.vec4).init(self.alloc);

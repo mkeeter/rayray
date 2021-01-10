@@ -133,7 +133,7 @@ vec3 norm(vec3 pos, vec4 shape) {
 //  returning a hit_t object of [pos, index]
 hit_t trace(vec3 start, vec3 dir) {
     float best_dist = 1e8;
-    hit_t best_hit = {vec3(0), 0};
+    uint best_hit = 0;
     const uint num_shapes = floatBitsToUint(scene_data[0].x);
 
     for (uint i=1; i <= num_shapes; i += 1) {
@@ -156,11 +156,14 @@ hit_t trace(vec3 start, vec3 dir) {
         }
         if (dist > SURFACE_EPSILON && dist < best_dist) {
             best_dist = dist;
-            best_hit.index = i;
+            best_hit = i;
         }
     }
-    best_hit.pos = start + dir*best_dist;
-    return best_hit;
+    hit_t t = {vec3(0), best_hit};
+    if (best_hit != 0) {
+        t.pos = start + dir*best_dist;
+    }
+    return t;
 }
 
 

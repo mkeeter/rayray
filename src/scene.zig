@@ -310,17 +310,16 @@ pub const Scene = struct {
     }
 
     pub fn encode(self: *Self) ![]c.vec4 {
-        const offset = self.shapes.items.len + self.materials.items.len + 1;
+        const offset = self.shapes.items.len + 1;
 
         // num shapes | 0 | 0 | 0
         // shape type | data offset | mat offset | 0
         // shape type | data offset | mat offset | 0
         // shape type | data offset | mat offset | 0
         // ...
-        // mat type | data offset | 0 | 0
-        // mat type | data offset | 0 | 0
+        // mat data
         // ...
-        // raw data
+        // shape data
         // ...
 
         // Store the list length as the first element
@@ -336,28 +335,26 @@ pub const Scene = struct {
         var heap = std.ArrayList(c.vec4).init(self.alloc);
         defer heap.deinit();
 
+        // Materials all live on the heap, with tags stored in the shapes
+        var mat_indexes = std.ArrayList(u32).init(self.alloc);
+        defer mat_indexes.deinit();
+        for (self.materials.items) |m| {
+            try mat_indexes.append(@intCast(u32, offset + heap.items.len));
+            try m.encode(&heap);
+        }
+
         // Encode all of the shapes and their respective data
         for (self.shapes.items) |s| {
             // Encode the shape's primary key
+            const m = self.materials.items[s.mat];
             try stack.append(.{
                 .x = @intToFloat(f32, s.prim.tag()), // kind
                 .y = @intToFloat(f32, offset + heap.items.len), // data offset
-                .z = @intToFloat(f32, s.mat + self.shapes.items.len + 1), // mat
-                .w = 0,
+                .z = @intToFloat(f32, mat_indexes.items[s.mat]), // mat
+                .w = @intToFloat(f32, m.tag()),
             });
             // Encode any data that the shape needs
             try s.encode(&heap);
-        }
-
-        // Put the materials after the shapes
-        for (self.materials.items) |m| {
-            try stack.append(.{
-                .x = @intToFloat(f32, m.tag()),
-                .y = @intToFloat(f32, offset + heap.items.len),
-                .z = 0,
-                .w = 0,
-            });
-            try m.encode(&heap);
         }
 
         for (heap.items) |v| {

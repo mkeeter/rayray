@@ -188,14 +188,13 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
         vec3 norm = norm(pos, shape);
 
         // Look at the material and decide whether to terminate
-        vec4 mat = scene_data[uint(shape.z)];
-        uint mat_type = uint(mat.x);
-        uint mat_offset = uint(mat.y);
+        uint mat_offset = uint(shape.z);
+        uint mat_type = uint(shape.w);
 
         switch (mat_type) {
             // When we hit a light, return immediately
             case MAT_LIGHT:
-                return color * scene_data[mat_offset].xyz;;
+                return color * scene_data[mat_offset].xyz;
 
             // Otherwise, handle the various material types
             case MAT_DIFFUSE:

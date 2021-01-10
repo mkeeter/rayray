@@ -34,7 +34,7 @@ uint32_t hash(uint key) {
     return h;
 }
 
-uint32_t fasthash(uint rng_state) {
+uint32_t hash_fast(uint rng_state) {
     // Xorshift algorithm from George Marsaglia's paper
     rng_state ^= (rng_state << 13);
     rng_state ^= (rng_state >> 17);

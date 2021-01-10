@@ -71,7 +71,8 @@ vec2 rand2(inout uint seed) {
 vec3 rand3_on_sphere(inout uint seed) {
     while (true) {
         vec3 v = rand3(seed);
-        if (length(v) <= 1.0 && length(v) > NORMAL_EPSILON) {
+        float len = dot(v, v);
+        if (len <= 1.0 && len > NORMAL_EPSILON) {
             return normalize(v);
         }
         seed++;
@@ -177,11 +178,11 @@ hit_t trace(vec3 start, vec3 dir) {
 
 // Normalize, snapping to the normal if the vector is pathologically short
 vec3 sanitize_dir(vec3 dir, vec3 norm) {
-    float len = length(dir);
-    if (len < NORMAL_EPSILON) {
-        return norm;
+    float len = dot(dir, dir);
+    if (len >= NORMAL_EPSILON) {
+        return dir / sqrt(len);
     } else {
-        return dir / len;
+        return norm;
     }
 }
 

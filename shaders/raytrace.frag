@@ -34,8 +34,16 @@ uint32_t hash(uint key) {
     return h;
 }
 
+uint32_t fasthash(uint rng_state) {
+    // Xorshift algorithm from George Marsaglia's paper
+    rng_state ^= (rng_state << 13);
+    rng_state ^= (rng_state >> 17);
+    rng_state ^= (rng_state << 5);
+    return rng_state;
+}
+
 float rand(inout uint seed) {
-    seed = hash(seed);
+    seed = hash_fast(seed);
 
     // https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
     uint m = seed;

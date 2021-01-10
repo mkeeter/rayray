@@ -53,7 +53,7 @@ pub const Metal = struct {
     }
     fn draw_gui(self: *Self) bool {
         const a = c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
-        const b = c.igDragFloat3("fuzz", &self.fuzz, 0.01, 0, 10, "%.2f", 0);
+        const b = c.igDragFloat("fuzz", &self.fuzz, 0.01, 0, 10, "%.2f", 0);
         return a or b;
     }
 };

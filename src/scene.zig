@@ -360,15 +360,6 @@ pub const Scene = struct {
         for (heap.items) |v| {
             try stack.append(v);
         }
-        var i: usize = 0;
-        for (stack.items) |b| {
-            std.debug.print("{}: ", .{i});
-            i += 1;
-            for ([_]f32{ b.x, b.y, b.z, b.w }) |v| {
-                std.debug.print("{d:.2}\t", .{v});
-            }
-            std.debug.print("\n", .{});
-        }
         return stack.toOwnedSlice();
     }
 

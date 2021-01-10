@@ -14,6 +14,11 @@ layout(set=0, binding=1) buffer Scene {
 #define SURFACE_EPSILON 1e-6
 #define NORMAL_EPSILON  1e-8
 
+struct hit_t {
+    vec3 pos;
+    uint index;
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 // Jenkins hash function, specialized for a uint key
 uint32_t hash(uint key) {
@@ -105,17 +110,16 @@ float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     }
 }
 
-vec3 norm(vec4 pos, vec4 shape) {
-    uint offset = uint(shape.y);
-    switch (uint(shape.x)) {
+vec3 norm(hit_t hit, vec4 shape) {
+    switch (floatBitsToUint(shape.x)) {
         case SHAPE_SPHERE: {
-            vec4 d = scene_data[offset];
-            return normalize(pos.xyz - d.xyz);
+            vec3 center = scene_data[hit.index + 1].xyz;
+            return normalize(hit.pos - center);
         }
         case SHAPE_INFINITE_PLANE: // fallthrough
         case SHAPE_FINITE_PLANE: {
-            vec4 d = scene_data[offset];
-            return d.xyz;
+            vec3 normal = scene_data[hit.index + 1].xyz;
+            return normal;
         }
         default: // unimplemented
             return vec3(0);
@@ -126,27 +130,30 @@ vec3 norm(vec4 pos, vec4 shape) {
 // The lowest-level building block:
 //  Raytraces to the next object in the scene,
 //  returning a vec4 of [end, id]
-vec4 trace(vec4 start, vec3 dir) {
+hit_t trace(vec3 start, vec3 dir) {
     float best_dist = 1e8;
-    vec4 best_hit = vec4(0);
-    const uint num_shapes = uint(scene_data[0].x);
+    hit_t best_hit = {vec3(0), 0};
 
-    // Avoid colliding with yourself
-    uint prev_shape = uint(start.w);
-
-    for (uint i=1; i <= num_shapes; i += 1) {
-        vec4 shape = scene_data[i];
-        uint offset = uint(shape.y);
+    // Iterate over shapes, which are packed with a variable-size encoding
+    const vec4 lol = scene_data[0];
+    const uint shapes_start = floatBitsToUint(lol.x);
+    const uint shapes_end = floatBitsToUint(lol.y);
+    uint shape = shapes_start;
+    while (shape < shapes_end) {
+        uint shape_tag = floatBitsToUint(scene_data[shape].x);
         float dist;
-        switch ((uint(shape.x))) {
+        uint delta = 0;
+        switch (shape_tag) {
             case SHAPE_SPHERE: {
-                vec4 d = scene_data[offset];
-                dist = hit_sphere(start.xyz, dir, d.xyz, d.w);
+                vec4 s = scene_data[shape + 1];
+                dist = hit_sphere(start.xyz, dir, s.xyz, s.w);
+                delta = 2;
                 break;
             }
             case SHAPE_INFINITE_PLANE: {
-                vec4 d = scene_data[offset];
-                dist = hit_plane(start.xyz, dir, d.xyz, d.w);
+                vec4 s = scene_data[shape + 1];
+                dist = hit_plane(start.xyz, dir, s.xyz, s.w);
+                delta = 2;
                 break;
             }
             default: // unimplemented shape
@@ -154,8 +161,10 @@ vec4 trace(vec4 start, vec3 dir) {
         }
         if (dist > SURFACE_EPSILON && dist < best_dist) {
             best_dist = dist;
-            best_hit = vec4(start.xyz + dir*dist, i);
+            best_hit.pos = start + dir*dist;
+            best_hit.index = shape;
         }
+        shape += delta;
     }
     return best_hit;
 }
@@ -172,43 +181,44 @@ vec3 sanitize_dir(vec3 dir, vec3 norm) {
 }
 
 #define BOUNCES 6
-vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
+vec3 bounce(vec3 pos, vec3 dir, inout uint seed) {
     vec3 color = vec3(1);
+    hit_t hit = {pos, 0};
     for (uint i=0; i < BOUNCES; ++i) {
         // Walk to the next object in the scene
-        pos = trace(pos, dir);
+        hit = trace(hit.pos, dir);
 
         // If we escaped the world, then terminate immediately
-        if (pos.w == 0) {
+        if (hit.index == 0) {
             return vec3(0);
         }
 
+        vec4 shape = scene_data[hit.index];
+
         // Extract the shape so we can pull the material
-        vec4 shape = scene_data[uint(pos.w)];
-        vec3 norm = norm(pos, shape);
+        vec3 norm = norm(hit, shape);
 
         // Look at the material and decide whether to terminate
-        vec4 mat = scene_data[uint(shape.z)];
-        uint mat_type = uint(mat.x);
-        uint mat_offset; // only used in some materials
+        uint mat = floatBitsToUint(shape.y);
+        uint mat_type = floatBitsToUint(shape.z);
 
         switch (mat_type) {
             // When we hit a light, return immediately
             case MAT_LIGHT:
                 // Light color is tightly packed in the yzw terms
-                return color * mat.yzw;
+                return color * scene_data[mat].xyz;
 
             // Otherwise, handle the various material types
             case MAT_DIFFUSE:
                 // Diffuse color is tightly packed in the yzw terms
-                color *= mat.yzw;
+                color *= scene_data[mat].xyz;
                 dir = sanitize_dir(norm + rand3_on_sphere(seed), norm);
                 break;
             case MAT_METAL:
-                mat_offset = uint(mat.y);
-                color *= scene_data[mat_offset].xyz;
+                vec4 m = scene_data[mat];
+                color *= m.xyz;
                 dir -= norm * dot(norm, dir)*2;
-                float fuzz = scene_data[mat_offset].w;
+                float fuzz = m.w;
                 if (fuzz != 0) {
                     dir += rand3_on_sphere(seed) * fuzz;
                     if (fuzz >= 0.99) {
@@ -220,8 +230,7 @@ vec3 bounce(vec4 pos, vec3 dir, inout uint seed) {
                 break;
             case MAT_GLASS:
                 // This doesn't support nested materials with different etas!
-                mat_offset = uint(mat.y);
-                float eta = scene_data[mat_offset].w;
+                float eta = scene_data[mat].w;
                 // If we're entering the shape, then decide whether to reflect
                 // or refract based on the incoming angle
                 if (dot(dir, norm) < 0) {
@@ -285,7 +294,7 @@ void main() {
 
         // Calculate the offset from camera center for this pixel, in 3D space,
         // then use this offset for both the start of the ray and for the
-        // ray direction change due to perspective
+        // ray direction change due to perspective), 1);
         vec3 offset = camera_mat * vec3(pixel_xy, 0);
         vec3 start = u.camera.pos + u.camera.scale * offset;
         vec3 dir = normalize(camera_dir + u.camera.perspective * offset);
@@ -302,6 +311,6 @@ void main() {
         dir = normalize(target - start);
 
         // Actually do the raytracing here, accumulating color
-        fragColor += vec4(bounce(vec4(start, 0), dir, seed), 1);
+        fragColor += vec4(bounce(start, dir, seed), 1);
     }
 }

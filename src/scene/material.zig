@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const c = @import("../c.zig");
+const util = @import("../util.zig");
 
 pub const Color = struct {
     const Self = @This();
@@ -153,38 +154,9 @@ pub const Material = union(enum) {
         };
     }
 
-    fn tag_array_len() usize {
-        comptime const tags = @typeInfo(@TagType(Self)).Enum.fields;
-        comptime var i: usize = 0;
-        comptime var total_len: usize = 0;
-        inline while (i < tags.len) : (i += 1) {
-            total_len += tags[i].name.len + 1;
-        }
-        return total_len;
-    }
-
-    fn tag_array() [@typeInfo(@TagType(Self)).Enum.fields.len][]u8 {
-        comptime var name_array: [tag_array_len()]u8 = undefined;
-        comptime var out_array: [@typeInfo(@TagType(Self)).Enum.fields.len][]u8 = undefined;
-        comptime var i: usize = 0;
-        comptime var j: usize = 0;
-        inline for (@typeInfo(@TagType(Self)).Enum.fields) |t| {
-            comptime const start = i;
-            inline for (t.name) |char| {
-                name_array[i] = char;
-                i += 1;
-            }
-            name_array[i] = 0;
-            i += 1;
-            out_array[j] = name_array[start..i];
-            j += 1;
-        }
-        return out_array;
-    }
-
     pub fn draw_gui(self: *Self) !bool {
         var changed = false;
-        const tags = tag_array();
+        const tags = util.tag_array(Self);
 
         // Copy the slice to a null-terminated string for C API
         const my_name = tags[@enumToInt(self.*)];

@@ -29,12 +29,23 @@ pub const Diffuse = struct {
 pub const Light = struct {
     const Self = @This();
 
+    // The GUI clamps colors to 0-1, so we include a secondary multiplier
+    // to adjust brightness beyond that range.
     color: Color,
+    intensity: f32,
+
     fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
-        return self.color.encode(buf);
+        return buf.append(.{
+            .x = self.color.r * self.intensity,
+            .y = self.color.g * self.intensity,
+            .z = self.color.b * self.intensity,
+            .w = 0,
+        });
     }
     fn draw_gui(self: *Self) bool {
-        return c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
+        const a = c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
+        const b = c.igDragFloat("intensity", &self.intensity, 0.05, 1, 10, "%.2f", 0);
+        return a or b;
     }
 };
 
@@ -101,9 +112,12 @@ pub const Material = union(enum) {
         };
     }
 
-    pub fn new_light(r: f32, g: f32, b: f32) Self {
+    pub fn new_light(r: f32, g: f32, b: f32, intensity: f32) Self {
         return .{
-            .Light = .{ .color = .{ .r = r, .g = g, .b = b } },
+            .Light = .{
+                .color = .{ .r = r, .g = g, .b = b },
+                .intensity = intensity,
+            },
         };
     }
 
@@ -167,6 +181,7 @@ pub const Material = union(enum) {
                         .Light => self.* = .{
                             .Light = .{
                                 .color = self.color(),
+                                .intensity = 1,
                             },
                         },
                         .Metal => self.* = .{

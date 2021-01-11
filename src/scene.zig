@@ -41,7 +41,7 @@ pub const Scene = struct {
 
     pub fn new_light_scene(alloc: *std.mem.Allocator) !Self {
         var scene = new(alloc, default_camera());
-        const light = try scene.new_material(Material.new_light(1, 1, 1));
+        const light = try scene.new_material(Material.new_light(1, 1, 1, 1));
         try scene.shapes.append(Shape.new_sphere(
             .{ .x = 0, .y = 0, .z = 0 },
             0.2,
@@ -54,7 +54,7 @@ pub const Scene = struct {
         var scene = new(alloc, default_camera());
         const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
         const red = try scene.new_material(Material.new_diffuse(1, 0.2, 0.2));
-        const light = try scene.new_material(Material.new_light(1, 1, 1));
+        const light = try scene.new_material(Material.new_light(1, 1, 1, 1));
 
         try scene.shapes.append(Shape.new_sphere(
             .{ .x = 0, .y = 0, .z = 0 },
@@ -83,7 +83,7 @@ pub const Scene = struct {
         const green = try scene.new_material(Material.new_diffuse(0.1, 1, 0.1));
         const metal = try scene.new_material(Material.new_metal(1, 1, 0.5, 0.1));
         const glass = try scene.new_material(Material.new_glass(1, 1, 1, 1.5));
-        const light = try scene.new_material(Material.new_light(4, 4, 4));
+        const light = try scene.new_material(Material.new_light(1, 1, 1, 4));
 
         // Light
         try scene.shapes.append(Shape.new_sphere(
@@ -239,7 +239,7 @@ pub const Scene = struct {
             metal,
         ));
 
-        const light = try scene.new_material(Material.new_light(0.8, 0.95, 1));
+        const light = try scene.new_material(Material.new_light(0.8, 0.95, 1, 1));
         try scene.shapes.append(Shape.new_sphere(
             .{ .x = 0, .y = 0, .z = 0 },
             2000,
@@ -254,7 +254,7 @@ pub const Scene = struct {
         const blue = try scene.new_material(Material.new_diffuse(0.5, 0.5, 1));
         const red = try scene.new_material(Material.new_diffuse(1, 0.5, 0.5));
         const glass = try scene.new_material(Material.new_glass(1, 1, 1, 1.5));
-        const light = try scene.new_material(Material.new_light(1, 1, 1));
+        const light = try scene.new_material(Material.new_light(1, 1, 1, 1));
 
         // Back wall
         try scene.shapes.append(Shape.new_infinite_plane(
@@ -377,15 +377,17 @@ pub const Scene = struct {
         var changed = false;
         var i: usize = 0;
         while (i < self.materials.items.len) : (i += 1) {
-            if (i > 0) {
-                c.igSeparator();
-            }
             c.igText("Material %i:", i);
             c.igIndent(c.igGetTreeNodeToLabelSpacing());
             c.igPushIDInt(@intCast(c_int, i));
             changed = (try self.materials.items[i].draw_gui()) or changed;
             c.igPopID();
             c.igUnindent(c.igGetTreeNodeToLabelSpacing());
+            c.igSeparator();
+        }
+        if (c.igButton("Add material", .{ .x = 0, .y = 0 })) {
+            _ = try self.new_material(Material.new_diffuse(1, 1, 1));
+            changed = true;
         }
         return changed;
     }

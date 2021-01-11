@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const c = @import("../c.zig");
+const gui = @import("../gui.zig");
 const util = @import("../util.zig");
 
 pub const Color = struct {

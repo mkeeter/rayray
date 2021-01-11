@@ -154,7 +154,7 @@ pub const Material = union(enum) {
         };
     }
 
-    pub fn draw_gui(self: *Self) !bool {
+    pub fn draw_gui(self: *Self) bool {
         var changed = false;
         const tags = util.tag_array(Self);
 

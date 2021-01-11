@@ -399,7 +399,7 @@ pub const Scene = struct {
             c.igText("Material %i:", i);
             c.igIndent(c.igGetTreeNodeToLabelSpacing());
             c.igPushIDPtr(@ptrCast(*c_void, &self.materials.items[i]));
-            changed = (try self.materials.items[i].draw_gui()) or changed;
+            changed = (self.materials.items[i].draw_gui()) or changed;
             c.igPopID();
             c.igUnindent(c.igGetTreeNodeToLabelSpacing());
             c.igSeparator();

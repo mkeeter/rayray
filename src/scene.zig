@@ -404,10 +404,14 @@ pub const Scene = struct {
             c.igUnindent(c.igGetTreeNodeToLabelSpacing());
             c.igSeparator();
         }
-        if (c.igButton("Add material", .{ .x = 0, .y = 0 })) {
+
+        const w = c.igGetWindowWidth() - c.igGetCursorPosX();
+        c.igIndent(w * 0.25);
+        if (c.igButton("Add material", .{ .x = w * 0.5, .y = 0 })) {
             _ = try self.new_material(Material.new_diffuse(1, 1, 1));
             changed = true;
         }
+        c.igUnindent(w * 0.25);
         return changed;
     }
 };

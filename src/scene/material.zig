@@ -157,58 +157,41 @@ pub const Material = union(enum) {
 
     pub fn draw_gui(self: *Self) bool {
         var changed = false;
-        const tags = util.tag_array(Self);
-
-        // Copy the slice to a null-terminated string for C API
-        const my_name = tags[@enumToInt(self.*)];
-
-        if (c.igBeginCombo("", @ptrCast([*c]const u8, my_name[0..]), 0)) {
-            var i: usize = 0;
-            const T = @typeInfo(@TagType(Self)).Enum.tag_type;
-            while (i < tags.len) : (i += 1) {
-                const is_selected = i == @enumToInt(self.*);
-
-                const t = @ptrCast([*c]const u8, tags[i]);
-                if (c.igSelectableBool(t, is_selected, 0, .{ .x = 0, .y = 0 })) {
-                    changed = true;
-                    switch (@intToEnum(@TagType(Self), @intCast(T, i))) {
-                        .Diffuse => self.* = .{
-                            .Diffuse = .{
-                                .color = self.color(),
-                            },
-                        },
-                        .Light => self.* = .{
-                            .Light = .{
-                                .color = self.color(),
-                                .intensity = 1,
-                            },
-                        },
-                        .Metal => self.* = .{
-                            .Metal = .{
-                                .color = self.color(),
-                                .fuzz = 0.1,
-                            },
-                        },
-                        .Glass => self.* = .{
-                            .Glass = .{
-                                .color = self.color(),
-                                .eta = 0.15,
-                            },
-                        },
-                    }
-                }
-                if (is_selected) {
-                    c.igSetItemDefaultFocus();
-                }
+        if (gui.draw_enum_combo(Self, self.*)) |e| {
+            // Swap the material type if the combo box returns a new tag
+            changed = true;
+            switch (e) {
+                .Diffuse => self.* = .{
+                    .Diffuse = .{
+                        .color = self.color(),
+                    },
+                },
+                .Light => self.* = .{
+                    .Light = .{
+                        .color = self.color(),
+                        .intensity = 1,
+                    },
+                },
+                .Metal => self.* = .{
+                    .Metal = .{
+                        .color = self.color(),
+                        .fuzz = 0.1,
+                    },
+                },
+                .Glass => self.* = .{
+                    .Glass = .{
+                        .color = self.color(),
+                        .eta = 0.15,
+                    },
+                },
             }
-            c.igEndCombo();
         }
 
         changed = switch (self.*) {
-            .Diffuse => self.Diffuse.draw_gui(),
-            .Light => self.Light.draw_gui(),
-            .Metal => self.Metal.draw_gui(),
-            .Glass => self.Glass.draw_gui(),
+            .Diffuse => |*d| d.draw_gui(),
+            .Light => |*d| d.draw_gui(),
+            .Metal => |*d| d.draw_gui(),
+            .Glass => |*d| d.draw_gui(),
         } or changed;
 
         return changed;

@@ -1,6 +1,8 @@
 const std = @import("std");
 
 const c = @import("../c.zig");
+const gui = @import("../gui.zig");
+
 const Primitive = @import("primitive.zig").Primitive;
 const Material = @import("material.zig").Material;
 
@@ -29,6 +31,24 @@ pub const Shape = struct {
     }
 
     pub fn draw_gui(self: *Self) !bool {
-        return false;
+        var changed = false;
+        if (gui.draw_enum_combo(Primitive, self.prim)) |s| {
+            changed = true;
+            switch (s) {
+                .Sphere => self.prim = .{
+                    .Sphere = .{
+                        .center = .{ .x = 0, .y = 0, .z = 0 },
+                        .radius = 0.5,
+                    },
+                },
+                .InfinitePlane => self.prim = .{
+                    .InfinitePlane = .{
+                        .normal = .{ .x = 0, .y = 0, .z = 1 },
+                        .offset = 0,
+                    },
+                },
+            }
+        }
+        return changed;
     }
 };

@@ -92,6 +92,13 @@ pub const Renderer = struct {
                 for (ui_changed) |b| {
                     changed = b or changed;
                 }
+                const w = c.igGetWindowWidth() - c.igGetCursorPosX();
+                c.igIndent(w * 0.25);
+                if (c.igButton("Reset", .{ .x = w * 0.5, .y = 0 })) {
+                    self.uniforms.camera = self.raytrace.scene.camera;
+                    changed = true;
+                }
+                c.igUnindent(w * 0.25);
             }
         }
         if (c.igCollapsingHeaderBoolPtr("Shapes", null, 0)) {

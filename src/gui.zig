@@ -81,7 +81,14 @@ pub const Gui = struct {
 
         // Use the Inconsolata font for the GUI, instead of Proggy Clean
         var io = c.igGetIO() orelse std.debug.panic("Could not get io\n", .{});
-        var font_ttf: []u8 = try util.file_contents(tmp_alloc, "font/Inconsolata-Regular.ttf");
+
+        // We need a non-const pointer here, so duplicate the data (which may
+        // be embedded in the executable if this is a release image, so it
+        // must be const).
+        const font_ttf: []u8 = try tmp_alloc.dupe(
+            u8,
+            try util.file_contents(tmp_alloc, "font/Inconsolata-Regular.ttf"),
+        );
         var font_config = c.ImFontConfig_ImFontConfig();
         defer c.ImFontConfig_destroy(font_config);
         font_config.*.FontDataOwnedByAtlas = false;
@@ -637,12 +644,12 @@ pub const Gui = struct {
     }
 };
 
-pub fn draw_enum_combo(comptime T: type, self: *const T) ?@TagType(T) {
+pub fn draw_enum_combo(comptime T: type, self: T) ?@TagType(T) {
     var changed = false;
     const tags = util.tag_array(T);
 
     // Copy the slice to a null-terminated string for C API
-    const my_name = tags[@enumToInt(self.*)];
+    const my_name = tags[@enumToInt(self)];
 
     var out: ?@TagType(T) = null;
 
@@ -650,11 +657,11 @@ pub fn draw_enum_combo(comptime T: type, self: *const T) ?@TagType(T) {
         var i: usize = 0;
         const TagIntType = @typeInfo(@TagType(T)).Enum.tag_type;
         while (i < tags.len) : (i += 1) {
-            const is_selected = i == @enumToInt(self.*);
+            const is_selected = i == @enumToInt(self);
 
             const t = @ptrCast([*c]const u8, tags[i]);
             if (c.igSelectableBool(t, is_selected, 0, .{ .x = 0, .y = 0 })) {
-                if (i != @enumToInt(self.*)) {
+                if (i != @enumToInt(self)) {
                     out = @intToEnum(@TagType(T), @intCast(TagIntType, i));
                 }
             }

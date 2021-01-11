@@ -373,13 +373,32 @@ pub const Scene = struct {
         return stack.toOwnedSlice();
     }
 
-    pub fn draw_gui(self: *Self) !bool {
+    pub fn draw_shapes_gui(self: *Self) !bool {
+        var changed = false;
+        var i: usize = 0;
+        while (i < self.shapes.items.len) : (i += 1) {
+            c.igText("Shape %i:", i);
+            c.igIndent(c.igGetTreeNodeToLabelSpacing());
+            c.igPushIDPtr(@ptrCast(*c_void, &self.shapes.items[i]));
+            changed = (try self.shapes.items[i].draw_gui()) or changed;
+            c.igPopID();
+            c.igUnindent(c.igGetTreeNodeToLabelSpacing());
+            c.igSeparator();
+        }
+        if (c.igButton("Add shape", .{ .x = 0, .y = 0 })) {
+            try self.shapes.append(Shape.new_sphere(.{ .x = 0, .y = 0, .z = 0 }, 1, 0));
+            changed = true;
+        }
+        return changed;
+    }
+
+    pub fn draw_materials_gui(self: *Self) !bool {
         var changed = false;
         var i: usize = 0;
         while (i < self.materials.items.len) : (i += 1) {
             c.igText("Material %i:", i);
             c.igIndent(c.igGetTreeNodeToLabelSpacing());
-            c.igPushIDInt(@intCast(c_int, i));
+            c.igPushIDPtr(@ptrCast(*c_void, &self.materials.items[i]));
             changed = (try self.materials.items[i].draw_gui()) or changed;
             c.igPopID();
             c.igUnindent(c.igGetTreeNodeToLabelSpacing());

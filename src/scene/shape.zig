@@ -27,4 +27,8 @@ pub const Shape = struct {
     pub fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
         try self.prim.encode(buf);
     }
+
+    pub fn draw_gui(self: *Self) !bool {
+        return false;
+    }
 };

@@ -153,26 +153,52 @@ pub const Material = union(enum) {
         };
     }
 
+    fn tag_array_len() usize {
+        comptime const tags = @typeInfo(@TagType(Self)).Enum.fields;
+        comptime var i: usize = 0;
+        comptime var total_len: usize = 0;
+        inline while (i < tags.len) : (i += 1) {
+            total_len += tags[i].name.len + 1;
+        }
+        return total_len;
+    }
+
+    fn tag_array() [@typeInfo(@TagType(Self)).Enum.fields.len][]u8 {
+        comptime var name_array: [tag_array_len()]u8 = undefined;
+        comptime var out_array: [@typeInfo(@TagType(Self)).Enum.fields.len][]u8 = undefined;
+        comptime var i: usize = 0;
+        comptime var j: usize = 0;
+        inline for (@typeInfo(@TagType(Self)).Enum.fields) |t| {
+            comptime const start = i;
+            inline for (t.name) |char| {
+                name_array[i] = char;
+                i += 1;
+            }
+            name_array[i] = 0;
+            i += 1;
+            out_array[j] = name_array[start..i];
+            j += 1;
+        }
+        return out_array;
+    }
+
     pub fn draw_gui(self: *Self) !bool {
         var changed = false;
-        var tags = [_]@TagType(Self){ .Diffuse, .Light, .Metal, .Glass };
-
-        var buf: [128]u8 = undefined;
-        var fba = std.heap.FixedBufferAllocator.init(buf[0..]);
+        const tags = tag_array();
 
         // Copy the slice to a null-terminated string for C API
-        const my_name = try fba.allocator.dupeZ(u8, @tagName(self.*));
+        const my_name = tags[@enumToInt(self.*)];
 
-        if (c.igBeginCombo("", @ptrCast([*c]const u8, my_name.ptr), 0)) {
+        if (c.igBeginCombo("", @ptrCast([*c]const u8, my_name[0..]), 0)) {
             var i: usize = 0;
+            const T = @typeInfo(@TagType(Self)).Enum.tag_type;
             while (i < tags.len) : (i += 1) {
-                const is_selected = tags[i] == self.*;
+                const is_selected = i == @enumToInt(self.*);
 
-                const t = try fba.allocator.dupeZ(u8, @tagName(tags[i]));
-                defer fba.allocator.free(t);
+                const t = @ptrCast([*c]const u8, tags[i]);
                 if (c.igSelectableBool(t, is_selected, 0, .{ .x = 0, .y = 0 })) {
                     changed = true;
-                    switch (tags[i]) {
+                    switch (@intToEnum(@TagType(Self), @intCast(T, i))) {
                         .Diffuse => self.* = .{
                             .Diffuse = .{
                                 .color = self.color(),

@@ -94,9 +94,12 @@ pub const Renderer = struct {
                 }
             }
         }
+        if (c.igCollapsingHeaderBoolPtr("Shapes", null, 0)) {
+            changed = (try self.raytrace.scene.draw_shapes_gui()) or changed;
+        }
 
         if (c.igCollapsingHeaderBoolPtr("Materials", null, 0)) {
-            changed = (try self.raytrace.scene.draw_gui()) or changed;
+            changed = (try self.raytrace.scene.draw_materials_gui()) or changed;
         }
 
         c.igEnd();

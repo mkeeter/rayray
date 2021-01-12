@@ -6,6 +6,3 @@ const c = @import("c.zig");
 // GLFW_EXPOSE_NATIVE_COCOA.  However, for mysterious reasons, this header
 // can't be included (https://github.com/Homebrew/homebrew-core/issues/44579)
 pub extern fn glfwGetCocoaWindow(window: ?*c.GLFWwindow) callconv(.C) ?*c_void;
-
-// Trust me, we're linking against AppKit eventually
-pub extern const NSPasteboardTypeString: c.id;

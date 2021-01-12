@@ -188,7 +188,7 @@ pub const Blit = struct {
             .bind_group_layout = bind_group_layout,
             .bind_group = undefined, // Assigned in bind_to_tex below
         };
-        out.bind_(tex_view, uniform_buf);
+        out.bind_(tex_view, uniform_buf, false);
         return out;
     }
 
@@ -197,7 +197,11 @@ pub const Blit = struct {
         self: *Self,
         tex_view: c.WGPUTextureViewId,
         uniform_buf: c.WGPUBufferId,
+        del_prev: bool,
     ) void {
+        if (del_prev) {
+            c.wgpu_bind_group_destroy(self.bind_group);
+        }
         const bind_group_entries = [_]c.WGPUBindGroupEntry{
             (c.WGPUBindGroupEntry){
                 .binding = 0,
@@ -243,8 +247,7 @@ pub const Blit = struct {
         tex_view: c.WGPUTextureViewId,
         uniform_buf: c.WGPUBufferId,
     ) void {
-        c.wgpu_bind_group_destroy(self.bind_group);
-        self.bind_(tex_view, uniform_buf);
+        self.bind_(tex_view, uniform_buf, true);
     }
 
     pub fn deinit(self: *Self) void {

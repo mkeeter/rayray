@@ -76,9 +76,24 @@ pub const Renderer = struct {
         );
     }
 
-    pub fn draw_gui(self: *Self) !bool {
+    pub fn draw_gui(self: *Self, menu_height: f32) !bool {
         var changed = false;
-        if (c.igBegin("rayray", null, 0)) {
+
+        c.igPushStyleVarFloat(c.ImGuiStyleVar_WindowRounding, 0.0);
+        c.igPushStyleVarFloat(c.ImGuiStyleVar_WindowBorderSize, 1.0);
+        c.igSetNextWindowPos(.{ .x = 0, .y = menu_height }, c.ImGuiCond_Always, .{ .x = 0, .y = 0 });
+        const window_size = c.igGetIO().*.DisplaySize;
+        c.igSetNextWindowSizeConstraints(.{
+            .x = 0,
+            .y = window_size.y - menu_height,
+        }, .{
+            .x = window_size.x / 2,
+            .y = window_size.y - menu_height,
+        }, null, null);
+        const flags = c.ImGuiWindowFlags_NoTitleBar |
+            c.ImGuiWindowFlags_NoMove |
+            c.ImGuiWindowFlags_NoCollapse;
+        if (c.igBegin("rayray", null, flags)) {
             if (c.igCollapsingHeaderBoolPtr("Camera", null, 0)) {
                 const ui_changed = [_]bool{
                     c.igDragFloat3("pos", @ptrCast([*c]f32, &self.uniforms.camera.pos), 0.05, -10, 10, "%.1f", 0),
@@ -110,6 +125,7 @@ pub const Renderer = struct {
         }
 
         c.igEnd();
+        c.igPopStyleVar(2);
         return changed;
     }
 

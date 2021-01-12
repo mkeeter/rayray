@@ -23,6 +23,9 @@ pub const Window = struct {
     renderer: Renderer,
     gui: Gui,
 
+    show_editor: bool,
+    show_gui_demo: bool,
+
     pub fn init(alloc: *std.mem.Allocator, options_: Options, name: [*c]const u8) !*Self {
         const window = c.glfwCreateWindow(
             @intCast(c_int, options_.width),
@@ -102,6 +105,8 @@ pub const Window = struct {
             .swap_chain = undefined,
             .renderer = try Renderer.init(alloc, options, device),
             .gui = try Gui.init(alloc, window, device),
+            .show_editor = false,
+            .show_gui_demo = false,
         };
         out.resize_swap_chain(options.width, options.height);
         return out;
@@ -137,11 +142,24 @@ pub const Window = struct {
 
         self.gui.new_frame();
 
-        // Do some GUI stuff here
-        if (true) {
-            c.igShowDemoWindow(null);
+        var menu_height: f32 = 0;
+        if (c.igBeginMainMenuBar()) {
+            if (c.igBeginMenu("View", true)) {
+                _ = c.igMenuItemBoolPtr("Show editor", "", &self.show_editor, true);
+                _ = c.igMenuItemBoolPtr("Show GUI demo", "", &self.show_gui_demo, true);
+                c.igEndMenu();
+            }
+            menu_height = c.igGetWindowHeight() - 1;
+            c.igEndMainMenuBar();
         }
-        const changed = try self.renderer.draw_gui();
+        var changed = false;
+        if (self.show_editor) {
+            changed = try self.renderer.draw_gui(menu_height);
+        }
+
+        if (self.show_gui_demo) {
+            c.igShowDemoWindow(&self.show_gui_demo);
+        }
 
         try self.renderer.draw(changed, next_texture, cmd_encoder);
         self.gui.draw(next_texture, cmd_encoder);

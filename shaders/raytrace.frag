@@ -285,6 +285,8 @@ void main() {
     const vec3 camera_dy = -cross(camera_dir, camera_dx);
     const mat3 camera_mat = mat3(camera_dx, camera_dy, camera_dir);
 
+    const vec2 camera_scale = vec2(float(u.width_px) / float(u.height_px), 1);
+
     for (uint i=0; i < u.samples_per_frame; ++i) {
         // Add anti-aliasing by jittering within the pixel
         float pixel_dx = rand(seed) - 0.5;
@@ -297,8 +299,8 @@ void main() {
         // Calculate the offset from camera center for this pixel, in 3D space,
         // then use this offset for both the start of the ray and for the
         // ray direction change due to perspective
-        vec3 offset = camera_mat * vec3(pixel_xy, 0);
-        vec3 start = u.camera.pos + u.camera.scale * offset;
+        vec3 offset = camera_mat * vec3(camera_scale * pixel_xy, 0);
+        vec3 start = u.camera.pos + offset;
         vec3 dir = normalize(camera_dir + u.camera.perspective * offset);
 
         // First, pick a target on the focal plane.

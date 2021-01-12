@@ -2,7 +2,6 @@ const std = @import("std");
 
 const c = @import("../c.zig");
 const gui = @import("../gui.zig");
-const util = @import("../util.zig");
 
 pub const Color = struct {
     const Self = @This();
@@ -156,8 +155,9 @@ pub const Material = union(enum) {
     }
 
     pub fn draw_gui(self: *Self) bool {
+        comptime const widgets = @import("../gui/widgets.zig");
         var changed = false;
-        if (gui.draw_enum_combo(Self, self.*)) |e| {
+        if (widgets.draw_enum_combo(Self, self.*)) |e| {
             // Swap the material type if the combo box returns a new tag
             changed = true;
             switch (e) {

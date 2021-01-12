@@ -31,8 +31,9 @@ pub const Shape = struct {
     }
 
     pub fn draw_gui(self: *Self) !bool {
+        comptime const widgets = @import("../gui/widgets.zig");
         var changed = false;
-        if (gui.draw_enum_combo(Primitive, self.prim)) |s| {
+        if (widgets.draw_enum_combo(Primitive, self.prim)) |s| {
             changed = true;
             switch (s) {
                 .Sphere => self.prim = .{

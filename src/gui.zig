@@ -7,35 +7,7 @@ const std = @import("std");
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
 const util = @import("util.zig");
-
-const Font = struct {
-    width: u32,
-    height: u32,
-    pixels: [*]u8,
-    bytes_per_pixel: u32,
-
-    fn from_io(io: [*c]c.ImGuiIO) Font {
-        var font_pixels_: ?*u8 = undefined;
-        var font_width_: c_int = undefined;
-        var font_height_: c_int = undefined;
-        var font_bytes_per_pixel_: c_int = undefined;
-        c.ImFontAtlas_GetTexDataAsRGBA32(
-            io.*.Fonts,
-            &font_pixels_,
-            &font_width_,
-            &font_height_,
-            &font_bytes_per_pixel_,
-        );
-        return Font{
-            .width = @intCast(u32, font_width_),
-            .height = @intCast(u32, font_height_),
-            .pixels = @ptrCast([*]u8, font_pixels_ orelse {
-                std.debug.panic("Could not get font", .{});
-            }),
-            .bytes_per_pixel = @intCast(u32, font_bytes_per_pixel_),
-        };
-    }
-};
+const Font = @import("gui/font.zig").Font;
 
 pub const Gui = struct {
     const Self = @This();
@@ -643,33 +615,3 @@ pub const Gui = struct {
         }
     }
 };
-
-pub fn draw_enum_combo(comptime T: type, self: T) ?@TagType(T) {
-    var changed = false;
-    const tags = util.tag_array(T);
-
-    // Copy the slice to a null-terminated string for C API
-    const my_name = tags[@enumToInt(self)];
-
-    var out: ?@TagType(T) = null;
-
-    if (c.igBeginCombo("", @ptrCast([*c]const u8, my_name[0..]), 0)) {
-        var i: usize = 0;
-        const TagIntType = @typeInfo(@TagType(T)).Enum.tag_type;
-        while (i < tags.len) : (i += 1) {
-            const is_selected = i == @enumToInt(self);
-
-            const t = @ptrCast([*c]const u8, tags[i]);
-            if (c.igSelectableBool(t, is_selected, 0, .{ .x = 0, .y = 0 })) {
-                if (i != @enumToInt(self)) {
-                    out = @intToEnum(@TagType(T), @intCast(TagIntType, i));
-                }
-            }
-            if (is_selected) {
-                c.igSetItemDefaultFocus();
-            }
-        }
-        c.igEndCombo();
-    }
-    return out;
-}

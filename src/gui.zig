@@ -9,11 +9,16 @@ const shaderc = @import("shaderc.zig");
 const util = @import("util.zig");
 const Font = @import("gui/font.zig").Font;
 
+const FONT_SIZE: u32 = 18;
+
 pub const Gui = struct {
     const Self = @This();
 
+    alloc: *std.mem.Allocator,
+
     ctx: *c.ImGuiContext,
-    time_ms: ?i64,
+    pixel_density: f32,
+    font_ttf: []u8,
 
     device: c.WGPUDeviceId,
     queue: c.WGPUQueueId,
@@ -57,23 +62,10 @@ pub const Gui = struct {
         // We need a non-const pointer here, so duplicate the data (which may
         // be embedded in the executable if this is a release image, so it
         // must be const).
-        const font_ttf: []u8 = try tmp_alloc.dupe(
+        const font_ttf: []u8 = try alloc.dupe(
             u8,
             try util.file_contents(tmp_alloc, "font/Inconsolata-Regular.ttf"),
         );
-        var font_config = c.ImFontConfig_ImFontConfig();
-        defer c.ImFontConfig_destroy(font_config);
-        font_config.*.FontDataOwnedByAtlas = false;
-        _ = c.ImFontAtlas_AddFontFromMemoryTTF(
-            io.*.Fonts,
-            @ptrCast(*c_void, font_ttf.ptr),
-            @intCast(c_int, font_ttf.len),
-            32,
-            font_config,
-            null,
-        );
-        _ = c.igFt_BuildFontAtlas(io.*.Fonts, 0);
-        io.*.FontGlobalScale = 0.5;
 
         ////////////////////////////////////////////////////////////////////////
 
@@ -111,63 +103,6 @@ pub const Gui = struct {
                 .mapped_at_creation = false,
             },
         );
-
-        ///////////////////////////////////////////////////////////////////////
-        // Font texture
-        const font = Font.from_io(io);
-        const font_tex = c.wgpu_device_create_texture(
-            device,
-            &(c.WGPUTextureDescriptor){
-                .size = .{
-                    .width = font.width,
-                    .height = font.height,
-                    .depth = 1,
-                },
-                .mip_level_count = 1,
-                .sample_count = 1,
-                .dimension = c.WGPUTextureDimension._D2,
-                .format = c.WGPUTextureFormat._Rgba8Unorm,
-
-                .usage = (c.WGPUTextureUsage_COPY_DST |
-                    c.WGPUTextureUsage_SAMPLED),
-                .label = "gui font tex",
-            },
-        );
-        const font_tex_view = c.wgpu_texture_create_view(
-            font_tex,
-            &(c.WGPUTextureViewDescriptor){
-                .label = "font font view",
-                .dimension = c.WGPUTextureViewDimension._D2,
-                .format = c.WGPUTextureFormat._Rgba8Unorm,
-                .aspect = c.WGPUTextureAspect._All,
-                .base_mip_level = 0,
-                .level_count = 1,
-                .base_array_layer = 0,
-                .array_layer_count = 1,
-            },
-        );
-        const font_tex_size = (c.WGPUExtent3d){
-            .width = font.width,
-            .height = font.height,
-            .depth = 1,
-        };
-        c.wgpu_queue_write_texture(
-            queue,
-            &(c.WGPUTextureCopyView){
-                .texture = font_tex,
-                .mip_level = 0,
-                .origin = (c.WGPUOrigin3d){ .x = 0, .y = 0, .z = 0 },
-            },
-            @ptrCast([*]const u8, font.pixels),
-            font.width * font.height * font.bytes_per_pixel,
-            &(c.WGPUTextureDataLayout){
-                .offset = 0,
-                .bytes_per_row = font.width * font.bytes_per_pixel,
-                .rows_per_image = font.height,
-            },
-            &font_tex_size,
-        );
-        io.*.Fonts.*.TexID = @intToPtr(*c_void, font_tex_view);
 
         ///////////////////////////////////////////////////////////////////////
         // Texture sampler (the font texture is handled above)
@@ -328,16 +263,20 @@ pub const Gui = struct {
         ////////////////////////////////////////////////////////////////////////
 
         var out = Gui{
+            .alloc = alloc,
+
             .ctx = ctx,
-            .time_ms = null,
+            .pixel_density = 2,
+            .font_ttf = font_ttf,
 
             .device = device,
             .queue = queue,
 
             .bind_group_layout = bind_group_layout,
 
-            .font_tex = font_tex,
-            .font_tex_view = font_tex_view,
+            // populated in rebuild_font below
+            .font_tex = undefined,
+            .font_tex_view = undefined,
 
             .tex_sampler = tex_sampler,
 
@@ -354,6 +293,7 @@ pub const Gui = struct {
 
         // Create the initial vertices and bind groups
         out.ensure_buf_size_(@sizeOf(c.ImDrawVert), @sizeOf(c.ImDrawIdx), false);
+        out.rebuild_font(io, 1, false);
 
         return out;
     }
@@ -399,7 +339,93 @@ pub const Gui = struct {
         );
     }
 
+    fn rebuild_font(self: *Self, io: [*c]c.ImGuiIO, pixel_density: f32, del_prev: bool) void {
+        std.debug.print("Rebuilding font with density {}\n", .{pixel_density});
+        // Clear any existing font atlas
+        c.ImFontAtlas_Clear(io.*.Fonts);
+
+        // We need a non-const pointer here, so duplicate the data (which may
+        // be embedded in the executable if this is a release image, so it
+        // must be const).
+        var font_config = c.ImFontConfig_ImFontConfig();
+        defer c.ImFontConfig_destroy(font_config);
+        font_config.*.FontDataOwnedByAtlas = false;
+        _ = c.ImFontAtlas_AddFontFromMemoryTTF(
+            io.*.Fonts,
+            @ptrCast(*c_void, self.font_ttf.ptr),
+            @intCast(c_int, self.font_ttf.len),
+            @intToFloat(f32, FONT_SIZE) * pixel_density,
+            font_config,
+            null,
+        );
+        //_ = c.igFt_BuildFontAtlas(io.*.Fonts, 0);
+        io.*.FontGlobalScale = 1 / pixel_density;
+        self.pixel_density = pixel_density;
+
+        ///////////////////////////////////////////////////////////////////////
+        // Font texture
+        const font = Font.from_io(io);
+        if (del_prev) {
+            c.wgpu_texture_destroy(self.font_tex);
+            c.wgpu_texture_view_destroy(self.font_tex_view);
+        }
+        self.font_tex = c.wgpu_device_create_texture(
+            self.device,
+            &(c.WGPUTextureDescriptor){
+                .size = .{
+                    .width = font.width,
+                    .height = font.height,
+                    .depth = 1,
+                },
+                .mip_level_count = 1,
+                .sample_count = 1,
+                .dimension = c.WGPUTextureDimension._D2,
+                .format = c.WGPUTextureFormat._Rgba8Unorm,
+
+                .usage = (c.WGPUTextureUsage_COPY_DST |
+                    c.WGPUTextureUsage_SAMPLED),
+                .label = "gui font tex",
+            },
+        );
+        self.font_tex_view = c.wgpu_texture_create_view(
+            self.font_tex,
+            &(c.WGPUTextureViewDescriptor){
+                .label = "font font view",
+                .dimension = c.WGPUTextureViewDimension._D2,
+                .format = c.WGPUTextureFormat._Rgba8Unorm,
+                .aspect = c.WGPUTextureAspect._All,
+                .base_mip_level = 0,
+                .level_count = 1,
+                .base_array_layer = 0,
+                .array_layer_count = 1,
+            },
+        );
+        const font_tex_size = (c.WGPUExtent3d){
+            .width = font.width,
+            .height = font.height,
+            .depth = 1,
+        };
+        c.wgpu_queue_write_texture(
+            self.queue,
+            &(c.WGPUTextureCopyView){
+                .texture = self.font_tex,
+                .mip_level = 0,
+                .origin = (c.WGPUOrigin3d){ .x = 0, .y = 0, .z = 0 },
+            },
+            @ptrCast([*]const u8, font.pixels),
+            font.width * font.height * font.bytes_per_pixel,
+            &(c.WGPUTextureDataLayout){
+                .offset = 0,
+                .bytes_per_row = font.width * font.bytes_per_pixel,
+                .rows_per_image = font.height,
+            },
+            &font_tex_size,
+        );
+        io.*.Fonts.*.TexID = @intToPtr(*c_void, self.font_tex_view);
+    }
+
     pub fn deinit(self: *Self) void {
+        self.alloc.free(self.font_ttf);
         c.igDestroyContext(self.ctx);
         c.wgpu_buffer_destroy(self.uniform_buf);
         c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
@@ -453,8 +479,14 @@ pub const Gui = struct {
         self.ensure_buf_size_(vtx_bytes, num_index, true);
     }
 
-    pub fn new_frame(self: *const Self) void {
+    pub fn new_frame(self: *Self) void {
         c.ImGui_ImplGlfw_NewFrame();
+
+        const io = c.igGetIO() orelse std.debug.panic("Could not get io\n", .{});
+        const pixel_density = io.*.DisplayFramebufferScale.x;
+        if (pixel_density != self.pixel_density) {
+            self.rebuild_font(io, pixel_density, true);
+        }
         c.igNewFrame();
     }
 

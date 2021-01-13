@@ -45,6 +45,11 @@ pub const Gui = struct {
     render_pipeline: c.WGPURenderPipelineId,
 
     pub fn init(alloc: *std.mem.Allocator, window: *c.GLFWwindow, device: c.WGPUDeviceId) !Self {
+        c.igSetAllocatorFunctions(
+            c.alloc_func,
+            c.free_func,
+            alloc,
+        );
         const ctx = c.igCreateContext(null);
         c.igSetCurrentContext(ctx);
 
@@ -340,7 +345,6 @@ pub const Gui = struct {
     }
 
     fn rebuild_font(self: *Self, io: [*c]c.ImGuiIO, pixel_density: f32, del_prev: bool) void {
-        std.debug.print("Rebuilding font with density {}\n", .{pixel_density});
         // Clear any existing font atlas
         c.ImFontAtlas_Clear(io.*.Fonts);
 

@@ -479,16 +479,6 @@ pub const Backend = struct {
         }
     }
 
-    pub fn draw(
-        self: *Self,
-        next_texture: c.WGPUSwapChainOutput,
-        cmd_encoder: c.WGPUCommandEncoderId,
-    ) void {
-        c.igRender();
-        var draw_data = c.igGetDrawData();
-        self.render_draw_data(next_texture, cmd_encoder, draw_data);
-    }
-
     fn setup_render_state(self: *const Self, draw_data: [*c]c.ImDrawData) void {
         const L = draw_data.*.DisplayPos.x;
         const R = draw_data.*.DisplayPos.x + draw_data.*.DisplaySize.x;
@@ -513,7 +503,7 @@ pub const Backend = struct {
         return;
     }
 
-    fn render_draw_data(
+    pub fn render_draw_data(
         self: *Self,
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,

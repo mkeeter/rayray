@@ -40,6 +40,8 @@ pub const Gui = struct {
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) void {
-        self.backend.draw(next_texture, cmd_encoder);
+        c.igRender();
+        var draw_data = c.igGetDrawData();
+        self.backend.render_draw_data(next_texture, cmd_encoder, draw_data);
     }
 };

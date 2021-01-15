@@ -142,6 +142,7 @@ pub const Window = struct {
 
         self.gui.new_frame();
 
+        var menu_width: f32 = 0;
         var menu_height: f32 = 0;
         if (c.igBeginMainMenuBar()) {
             if (c.igBeginMenu("View", true)) {
@@ -154,7 +155,7 @@ pub const Window = struct {
         }
         var changed = false;
         if (self.show_editor) {
-            changed = try self.renderer.draw_gui(menu_height);
+            changed = try self.renderer.draw_gui(menu_height, &menu_width);
         }
 
         if (self.show_gui_demo) {

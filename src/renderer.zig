@@ -76,7 +76,7 @@ pub const Renderer = struct {
         );
     }
 
-    pub fn draw_gui(self: *Self, menu_height: f32) !bool {
+    pub fn draw_gui(self: *Self, menu_height: f32, menu_width: *f32) !bool {
         var changed = false;
 
         c.igPushStyleVarFloat(c.ImGuiStyleVar_WindowRounding, 0.0);
@@ -115,13 +115,15 @@ pub const Renderer = struct {
                 }
                 c.igUnindent(w * 0.25);
             }
-        }
-        if (c.igCollapsingHeaderBoolPtr("Shapes", null, 0)) {
-            changed = (try self.raytrace.scene.draw_shapes_gui()) or changed;
-        }
 
-        if (c.igCollapsingHeaderBoolPtr("Materials", null, 0)) {
-            changed = (try self.raytrace.scene.draw_materials_gui()) or changed;
+            if (c.igCollapsingHeaderBoolPtr("Shapes", null, 0)) {
+                changed = (try self.raytrace.scene.draw_shapes_gui()) or changed;
+            }
+
+            if (c.igCollapsingHeaderBoolPtr("Materials", null, 0)) {
+                changed = (try self.raytrace.scene.draw_materials_gui()) or changed;
+            }
+            menu_width.* = c.igGetWindowWidth();
         }
 
         c.igEnd();

@@ -385,10 +385,13 @@ pub const Scene = struct {
             c.igUnindent(c.igGetTreeNodeToLabelSpacing());
             c.igSeparator();
         }
-        if (c.igButton("Add shape", .{ .x = 0, .y = 0 })) {
+        const w = c.igGetWindowWidth() - c.igGetCursorPosX();
+        c.igIndent(w * 0.25);
+        if (c.igButton("Add shape", .{ .x = w * 0.5, .y = 0 })) {
             try self.shapes.append(Shape.new_sphere(.{ .x = 0, .y = 0, .z = 0 }, 1, 0));
             changed = true;
         }
+        c.igUnindent(w * 0.25);
         return changed;
     }
 

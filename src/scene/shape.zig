@@ -30,7 +30,7 @@ pub const Shape = struct {
         try self.prim.encode(buf);
     }
 
-    pub fn draw_gui(self: *Self) !bool {
+    pub fn draw_gui(self: *Self, num_materials: usize) !bool {
         comptime const widgets = @import("../gui/widgets.zig");
         var changed = false;
         if (widgets.draw_enum_combo(Primitive, self.prim)) |s| {
@@ -49,6 +49,11 @@ pub const Shape = struct {
                     },
                 },
             }
+        }
+        var mat: c_int = @intCast(c_int, self.mat);
+        if (c.igDragInt("material", &mat, 0.1, 0, @intCast(c_int, num_materials - 1), "%i", 0)) {
+            self.mat = @intCast(u32, mat);
+            changed = true;
         }
         changed = self.prim.draw_gui() or changed;
         return changed;

@@ -376,11 +376,12 @@ pub const Scene = struct {
     pub fn draw_shapes_gui(self: *Self) !bool {
         var changed = false;
         var i: usize = 0;
+        const num_mats = self.materials.items.len;
         while (i < self.shapes.items.len) : (i += 1) {
             c.igText("Shape %i:", i);
             c.igIndent(c.igGetTreeNodeToLabelSpacing());
             c.igPushIDPtr(@ptrCast(*c_void, &self.shapes.items[i]));
-            changed = (try self.shapes.items[i].draw_gui()) or changed;
+            changed = (try self.shapes.items[i].draw_gui(num_mats)) or changed;
             c.igPopID();
             c.igUnindent(c.igGetTreeNodeToLabelSpacing());
             c.igSeparator();

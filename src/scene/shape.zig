@@ -50,6 +50,7 @@ pub const Shape = struct {
                 },
             }
         }
+        changed = self.prim.draw_gui() or changed;
         return changed;
     }
 };

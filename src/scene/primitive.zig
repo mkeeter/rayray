@@ -16,6 +16,11 @@ pub const Sphere = struct {
             .w = self.radius,
         });
     }
+    fn draw_gui(self: *Self) bool {
+        var changed = c.igDragFloat3("center", @ptrCast([*c]f32, &self.center), 0.05, -10, 10, "%.2f", 0);
+        changed = c.igDragFloat("radius", &self.radius, 0.01, 0, 10, "%.2f", 0) or changed;
+        return changed;
+    }
 };
 
 pub const InfinitePlane = struct {
@@ -31,6 +36,12 @@ pub const InfinitePlane = struct {
             .z = self.normal.z,
             .w = self.offset,
         });
+    }
+
+    fn draw_gui(self: *Self) bool {
+        var changed = c.igDragFloat3("normal", @ptrCast([*c]f32, &self.normal), 0.05, -10, 10, "%.2f", 0);
+        changed = c.igDragFloat("offset", &self.offset, 0.01, 0, 10, "%.2f", 0) or changed;
+        return changed;
     }
 };
 
@@ -69,6 +80,13 @@ pub const Primitive = union(enum) {
         return switch (self) {
             .Sphere => |s| s.encode(buf),
             .InfinitePlane => |s| s.encode(buf),
+        };
+    }
+
+    pub fn draw_gui(self: *Self) bool {
+        return switch (self.*) {
+            .Sphere => |*d| d.draw_gui(),
+            .InfinitePlane => |*d| d.draw_gui(),
         };
     }
 };

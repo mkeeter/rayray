@@ -160,10 +160,6 @@ pub const Renderer = struct {
         // Record the start time at the first frame, to skip startup time
         if (self.uniforms.samples == 0) {
             self.start_time_ms = std.time.milliTimestamp();
-        } else if (@mod(self.frame, 10) == 0) {
-            // Print stats occasionally
-            std.debug.print("\r", .{});
-            self.print_stats();
         }
 
         // Cast another set of rays, one per pixel
@@ -189,7 +185,7 @@ pub const Renderer = struct {
         }
     }
 
-    pub fn print_stats(self: *const Self) void {
+    pub fn stats(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
         var ray_count = @intToFloat(f64, self.uniforms.width_px) *
             @intToFloat(f64, self.uniforms.height_px) *
             @intToFloat(f64, self.uniforms.samples);
@@ -199,14 +195,10 @@ pub const Renderer = struct {
         var rays_per_sec = ray_count / dt_sec;
         var rays_per_sec_prefix = prefix(&rays_per_sec);
 
-        var ray_count_prefix = prefix(&ray_count);
-
-        std.debug.print(
-            "Rendered {d:.2} {c}rays in {d:.2} sec ({d:.2} {c}ray/sec, {} rays/pixel at {} x {})        ",
+        return try std.fmt.allocPrintZ(
+            alloc,
+            "{d:.2} {c}ray/sec | {} rays/pixel | {} x {}",
             .{
-                ray_count,
-                ray_count_prefix,
-                dt_sec,
                 rays_per_sec,
                 rays_per_sec_prefix,
                 self.uniforms.samples,

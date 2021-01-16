@@ -151,6 +151,15 @@ pub const Window = struct {
                 c.igEndMenu();
             }
             menu_height = c.igGetWindowHeight() - 1;
+
+            const stats = try self.renderer.stats(self.alloc);
+            defer self.alloc.free(stats);
+            var text_size: c.ImVec2 = undefined;
+            c.igCalcTextSize(&text_size, stats.ptr, null, false, -1);
+
+            c.igSetCursorPosX(c.igGetWindowWidth() - text_size.x - 10);
+            c.igTextUnformatted(stats.ptr, null);
+
             c.igEndMainMenuBar();
         }
         var changed = false;
@@ -192,7 +201,6 @@ pub const Window = struct {
             try self.draw();
             c.glfwPollEvents();
         }
-        std.debug.print("\n", .{});
     }
 
     fn update_size(self: *Self, width_: c_int, height_: c_int) void {

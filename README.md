@@ -1,6 +1,10 @@
 # rayray
 A tiny GPU raytracer!
 
+![Cornell Box](https://www.mattkeeter.com/projects/rayray/cornell@2x.png)
+
+![Ray tracing in one weekend](https://www.mattkeeter.com/projects/rayray/rtiow@2x.png)
+
 ## Features
 - Diffuse, metal, and glass materials
 - The only two shapes that matter:

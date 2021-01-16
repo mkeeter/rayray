@@ -21,6 +21,22 @@ pub const Sphere = struct {
         changed = c.igDragFloat("radius", &self.radius, 0.01, 0, 10, "%.2f", 0) or changed;
         return changed;
     }
+
+    pub fn norm_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
+        return std.fmt.allocPrint(
+            alloc,
+            "normalize(pos - vec3({}, {}, {}))",
+            .{ self.center.x, self.center.y, self.center.z },
+        );
+    }
+
+    pub fn hit_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
+        return std.fmt.allocPrint(
+            alloc,
+            "hit_sphere(start, dir, vec3({}, {}, {}), {})",
+            .{ self.center.x, self.center.y, self.center.z, self.radius },
+        );
+    }
 };
 
 pub const InfinitePlane = struct {
@@ -42,6 +58,22 @@ pub const InfinitePlane = struct {
         var changed = c.igDragFloat3("normal", @ptrCast([*c]f32, &self.normal), 0.05, -10, 10, "%.2f", 0);
         changed = c.igDragFloat("offset", &self.offset, 0.01, -10, 10, "%.2f", 0) or changed;
         return changed;
+    }
+
+    pub fn norm_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
+        return std.fmt.allocPrint(
+            alloc,
+            "vec3({}, {}, {})",
+            .{ self.normal.x, self.normal.y, self.normal.z },
+        );
+    }
+
+    pub fn hit_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
+        return std.fmt.allocPrint(
+            alloc,
+            "hit_plane(start, dir,  vec3({}, {}, {}), {})",
+            .{ self.normal.x, self.normal.y, self.normal.z, self.offset },
+        );
     }
 };
 
@@ -87,6 +119,20 @@ pub const Primitive = union(enum) {
         return switch (self.*) {
             .Sphere => |*d| d.draw_gui(),
             .InfinitePlane => |*d| d.draw_gui(),
+        };
+    }
+
+    pub fn norm_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
+        return try switch (self.*) {
+            .Sphere => |d| d.norm_glsl(alloc),
+            .InfinitePlane => |d| d.norm_glsl(alloc),
+        };
+    }
+
+    pub fn hit_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
+        return try switch (self.*) {
+            .Sphere => |d| d.hit_glsl(alloc),
+            .InfinitePlane => |d| d.hit_glsl(alloc),
         };
     }
 };

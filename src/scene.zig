@@ -310,6 +310,13 @@ pub const Scene = struct {
     }
 
     pub fn encode(self: *const Self) ![]c.vec4 {
+        const norm_g = try self.norm_glsl();
+        defer self.alloc.free(norm_g);
+        std.debug.print("norm:\n{s}\n", .{norm_g});
+        const trace_g = try self.trace_glsl();
+        defer self.alloc.free(trace_g);
+        std.debug.print("trace:\n{s}\n", .{trace_g});
+
         const offset = self.shapes.items.len + 1;
 
         // Data is packed into an array of vec4s in a GPU buffer:
@@ -417,5 +424,77 @@ pub const Scene = struct {
         }
         c.igUnindent(w * 0.25);
         return changed;
+    }
+
+    pub fn norm_glsl(self: *const Self) ![]const u8 {
+        var arena = std.heap.ArenaAllocator.init(self.alloc);
+        const tmp_alloc: *std.mem.Allocator = &arena.allocator;
+        defer arena.deinit();
+
+        var out = try std.fmt.allocPrint(tmp_alloc,
+            \\vec3 norm(vec3 pos, uint shape) {{
+            \\  switch(shape) {{
+            \\    case 0: return vec3(0); // Invalid
+        , .{});
+        var i: usize = 0;
+        for (self.shapes.items) |shape| {
+            const line = try shape.norm_glsl(tmp_alloc);
+            out = try std.fmt.allocPrint(
+                tmp_alloc,
+                "{s}\n    case {}: return {s};",
+                .{ out, i + 1, line },
+            );
+            i += 1;
+        }
+
+        // Close up the function, and switch to the non-temporary allocator
+        out = try std.fmt.allocPrint(self.alloc,
+            \\{s}
+            \\  default: return vec3(0); // Also invalid
+            \\  }}
+            \\}}
+        , .{out});
+        return out;
+    }
+
+    pub fn trace_glsl(self: *const Self) ![]const u8 {
+        var arena = std.heap.ArenaAllocator.init(self.alloc);
+        const tmp_alloc: *std.mem.Allocator = &arena.allocator;
+        defer arena.deinit();
+
+        var out = try std.fmt.allocPrint(tmp_alloc,
+            \\vec3 trace(vec3 pos, uint shape) {{
+            \\  float best_dist = 1e8;
+            \\  uint best_hit = 0;
+            \\  float dist;
+        , .{});
+        var i: usize = 1;
+        for (self.shapes.items) |shape| {
+            const line = try shape.hit_glsl(tmp_alloc);
+            out = try std.fmt.allocPrint(
+                tmp_alloc,
+                \\{s}
+                \\  dist = {s};
+                \\  if (dist < best_dist) {{
+                \\    best_dist = dist;
+                \\    best_hit = {};
+                \\  }}
+            ,
+                .{ out, try shape.hit_glsl(tmp_alloc), i },
+            );
+            i += 1;
+        }
+
+        // Close up the function, and switch to the non-temporary allocator
+        out = try std.fmt.allocPrint(self.alloc,
+            \\{s}
+            \\  hit_t t = {{vec3(0), best_hit}};
+            \\  if (best_hit != 0) {{
+            \\    t.pos = start + dir*best_dist;
+            \\  }}
+            \\  return t;
+            \\}}
+        , .{out});
+        return out;
     }
 };

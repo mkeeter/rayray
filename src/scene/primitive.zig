@@ -40,7 +40,7 @@ pub const InfinitePlane = struct {
 
     fn draw_gui(self: *Self) bool {
         var changed = c.igDragFloat3("normal", @ptrCast([*c]f32, &self.normal), 0.05, -10, 10, "%.2f", 0);
-        changed = c.igDragFloat("offset", &self.offset, 0.01, 0, 10, "%.2f", 0) or changed;
+        changed = c.igDragFloat("offset", &self.offset, 0.01, -10, 10, "%.2f", 0) or changed;
         return changed;
     }
 };

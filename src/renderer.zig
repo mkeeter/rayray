@@ -153,7 +153,7 @@ pub const Renderer = struct {
         }
 
         // Cast another set of rays, one per pixel
-        try self.raytrace.draw(self.uniforms.samples == 0);
+        try self.raytrace.draw(self.uniforms.samples == 0, cmd_encoder);
         self.uniforms.samples += self.uniforms.samples_per_frame;
         self.frame += 1;
 

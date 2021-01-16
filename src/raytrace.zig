@@ -328,12 +328,7 @@ pub const Raytrace = struct {
         try self.upload_scene_(true);
     }
 
-    pub fn draw(self: *Self, first: bool) !void {
-        const cmd_encoder = c.wgpu_device_create_command_encoder(
-            self.device,
-            &(c.WGPUCommandEncoderDescriptor){ .label = "raytrace encoder" },
-        );
-
+    pub fn draw(self: *Self, first: bool, cmd_encoder: c.WGPUCommandEncoderId) !void {
         if (first) {
             try self.upload_scene();
         }
@@ -373,8 +368,5 @@ pub const Raytrace = struct {
         c.wgpu_render_pass_set_bind_group(rpass, 0, self.bind_group, null, 0);
         c.wgpu_render_pass_draw(rpass, 3, 1, 0, 0);
         c.wgpu_render_pass_end_pass(rpass);
-
-        const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);
-        c.wgpu_queue_submit(self.queue, &cmd_buf, 1);
     }
 };

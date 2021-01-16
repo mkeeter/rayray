@@ -5,6 +5,7 @@ const c = @import("c.zig");
 const Options = @import("options.zig").Options;
 const Renderer = @import("renderer.zig").Renderer;
 const Gui = @import("gui.zig").Gui;
+const RaytraceCompute = @import("rt_compute.zig").RaytraceCompute;
 
 pub const Window = struct {
     const Self = @This();
@@ -22,6 +23,9 @@ pub const Window = struct {
     // Subsystems
     renderer: Renderer,
     gui: Gui,
+
+    // Test:
+    rt_compute: RaytraceCompute,
 
     show_editor: bool,
     show_gui_demo: bool,
@@ -96,6 +100,10 @@ pub const Window = struct {
         _ = c.glfwSetWindowUserPointer(window, out);
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
 
+        var renderer = try Renderer.init(alloc, options, device);
+        var rt_compute = try RaytraceCompute.init(alloc, device, options, renderer.uniform_buf);
+        renderer.blit.bind(rt_compute.tex_view, renderer.uniform_buf);
+
         out.* = .{
             .alloc = alloc,
             .window = window,
@@ -103,8 +111,9 @@ pub const Window = struct {
             .queue = c.wgpu_device_get_default_queue(device),
             .surface = surface,
             .swap_chain = undefined,
-            .renderer = try Renderer.init(alloc, options, device),
+            .renderer = renderer,
             .gui = try Gui.init(alloc, window, device),
+            .rt_compute = rt_compute,
             .show_editor = false,
             .show_gui_demo = false,
         };
@@ -116,6 +125,8 @@ pub const Window = struct {
         c.glfwDestroyWindow(self.window);
         self.renderer.deinit();
         self.gui.deinit();
+        self.rt_compute.deinit();
+
         self.alloc.destroy(self);
     }
 
@@ -160,6 +171,9 @@ pub const Window = struct {
         if (self.show_gui_demo) {
             c.igShowDemoWindow(&self.show_gui_demo);
         }
+
+        try self.rt_compute.draw(self.renderer.uniforms.samples == 0, // first
+            cmd_encoder);
 
         try self.renderer.draw(changed, next_texture, cmd_encoder);
         self.gui.draw(next_texture, cmd_encoder);

@@ -162,7 +162,23 @@ pub const Window = struct {
             c.igShowDemoWindow(&self.show_gui_demo);
         }
 
-        try self.renderer.draw(changed, next_texture, cmd_encoder);
+        const io = c.igGetIO() orelse std.debug.panic("Could not get io\n", .{});
+        const pixel_density = io.*.DisplayFramebufferScale.x;
+        const window_width = io.*.DisplaySize.x;
+        const window_height = io.*.DisplaySize.y;
+        try self.renderer.draw(
+            changed,
+            .{
+                .width = (window_width - menu_width) * pixel_density,
+                .height = (window_height - menu_height) * pixel_density,
+                .x = menu_width * pixel_density,
+                .y = menu_height * pixel_density,
+            },
+            next_texture,
+            cmd_encoder,
+        );
+
+        // Draw the GUI, which has been building render lists until now
         self.gui.draw(next_texture, cmd_encoder);
 
         const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);

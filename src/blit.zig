@@ -3,6 +3,8 @@ const std = @import("std");
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
 
+const Viewport = @import("viewport.zig").Viewport;
+
 pub const Blit = struct {
     const Self = @This();
 
@@ -258,6 +260,7 @@ pub const Blit = struct {
 
     pub fn draw(
         self: *const Self,
+        viewport: Viewport,
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) void {
@@ -290,6 +293,15 @@ pub const Blit = struct {
 
         c.wgpu_render_pass_set_pipeline(rpass, self.render_pipeline);
         c.wgpu_render_pass_set_bind_group(rpass, 0, self.bind_group, null, 0);
+        c.wgpu_render_pass_set_viewport(
+            rpass,
+            viewport.x,
+            viewport.y,
+            viewport.width,
+            viewport.height,
+            -1,
+            1,
+        );
         c.wgpu_render_pass_draw(rpass, 3, 1, 0, 0);
         c.wgpu_render_pass_end_pass(rpass);
     }

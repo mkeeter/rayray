@@ -6,6 +6,7 @@ const shaderc = @import("shaderc.zig");
 const Blit = @import("blit.zig").Blit;
 const Raytrace = @import("raytrace.zig").Raytrace;
 const Options = @import("options.zig").Options;
+const Viewport = @import("viewport.zig").Viewport;
 
 pub const Renderer = struct {
     const Self = @This();
@@ -140,9 +141,16 @@ pub const Renderer = struct {
     pub fn draw(
         self: *Self,
         clear: bool,
+        viewport: Viewport,
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) !void {
+        const width = @floatToInt(u32, viewport.width);
+        const height = @floatToInt(u32, viewport.height);
+        if (width != self.uniforms.width_px or height != self.uniforms.height_px) {
+            self.update_size(width, height);
+        }
+
         if (clear) {
             self.uniforms.samples = 0;
         }
@@ -163,7 +171,7 @@ pub const Renderer = struct {
         self.uniforms.samples += self.uniforms.samples_per_frame;
         self.frame += 1;
 
-        self.blit.draw(next_texture, cmd_encoder);
+        self.blit.draw(viewport, next_texture, cmd_encoder);
     }
 
     fn prefix(v: *f64) u8 {

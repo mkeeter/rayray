@@ -193,7 +193,7 @@ pub const Raytrace = struct {
             .tex_view = undefined, // assigned in resize() below
 
             .render_pipeline = render_pipeline,
-            .scene = try Scene.new_simple_scene(alloc),
+            .scene = try Scene.new_cornell_box(alloc),
         };
         out.resize_(options.width, options.height, false);
         try out.upload_scene_(false);

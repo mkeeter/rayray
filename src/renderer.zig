@@ -76,6 +76,30 @@ pub const Renderer = struct {
         );
     }
 
+    fn draw_camera_gui(self: *Self) bool {
+        const ui_changed = [_]bool{
+            c.igDragFloat3("pos", @ptrCast([*c]f32, &self.uniforms.camera.pos), 0.05, -10, 10, "%.1f", 0),
+            c.igDragFloat3("target", @ptrCast([*c]f32, &self.uniforms.camera.target), 0.05, -10, 10, "%.1f", 0),
+            c.igDragFloat3("up", @ptrCast([*c]f32, &self.uniforms.camera.up), 0.1, -1, 1, "%.1f", 0),
+            c.igDragFloat("perspective", &self.uniforms.camera.perspective, 0.01, 0, 1, "%.2f", 0),
+            c.igDragFloat("defocus", &self.uniforms.camera.defocus, 0.001, 0, 0.2, "%.2f", 0),
+            c.igDragFloat("focal length", &self.uniforms.camera.focal_distance, 0.01, 0, 10, "%.2f", 0),
+            c.igDragFloat("scale", &self.uniforms.camera.scale, 0.05, 0, 2, "%.1f", 0),
+        };
+        var changed = false;
+        for (ui_changed) |b| {
+            changed = b or changed;
+        }
+        const w = c.igGetWindowWidth() - c.igGetCursorPosX();
+        c.igIndent(w * 0.25);
+        if (c.igButton("Reset", .{ .x = w * 0.5, .y = 0 })) {
+            self.uniforms.camera = self.raytrace.scene.camera;
+            changed = true;
+        }
+        c.igUnindent(w * 0.25);
+        return changed;
+    }
+
     pub fn draw_gui(self: *Self, menu_height: f32, menu_width: *f32) !bool {
         var changed = false;
 
@@ -95,25 +119,7 @@ pub const Renderer = struct {
             c.ImGuiWindowFlags_NoCollapse;
         if (c.igBegin("rayray", null, flags)) {
             if (c.igCollapsingHeaderBoolPtr("Camera", null, 0)) {
-                const ui_changed = [_]bool{
-                    c.igDragFloat3("pos", @ptrCast([*c]f32, &self.uniforms.camera.pos), 0.05, -10, 10, "%.1f", 0),
-                    c.igDragFloat3("target", @ptrCast([*c]f32, &self.uniforms.camera.target), 0.05, -10, 10, "%.1f", 0),
-                    c.igDragFloat3("up", @ptrCast([*c]f32, &self.uniforms.camera.up), 0.1, -1, 1, "%.1f", 0),
-                    c.igDragFloat("perspective", &self.uniforms.camera.perspective, 0.01, 0, 1, "%.2f", 0),
-                    c.igDragFloat("defocus", &self.uniforms.camera.defocus, 0.001, 0, 0.2, "%.2f", 0),
-                    c.igDragFloat("focal length", &self.uniforms.camera.focal_distance, 0.01, 0, 10, "%.2f", 0),
-                    c.igDragFloat("scale", &self.uniforms.camera.scale, 0.05, 0, 2, "%.1f", 0),
-                };
-                for (ui_changed) |b| {
-                    changed = b or changed;
-                }
-                const w = c.igGetWindowWidth() - c.igGetCursorPosX();
-                c.igIndent(w * 0.25);
-                if (c.igButton("Reset", .{ .x = w * 0.5, .y = 0 })) {
-                    self.uniforms.camera = self.raytrace.scene.camera;
-                    changed = true;
-                }
-                c.igUnindent(w * 0.25);
+                changed = self.draw_camera_gui() or changed;
             }
 
             if (c.igCollapsingHeaderBoolPtr("Shapes", null, 0)) {

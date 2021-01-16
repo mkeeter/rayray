@@ -5,6 +5,7 @@ const shaderc = @import("shaderc.zig");
 
 const Blit = @import("blit.zig").Blit;
 const Raytrace = @import("raytrace.zig").Raytrace;
+const Scene = @import("scene.zig").Scene;
 const Options = @import("options.zig").Options;
 const Viewport = @import("viewport.zig").Viewport;
 
@@ -25,6 +26,7 @@ pub const Renderer = struct {
 
     pub fn init(
         alloc: *std.mem.Allocator,
+        scene: Scene,
         options: Options,
         device: c.WGPUDeviceId,
     ) !Self {
@@ -40,7 +42,7 @@ pub const Renderer = struct {
             },
         );
 
-        const rt = try Raytrace.init(alloc, device, options, uniform_buf);
+        const rt = try Raytrace.init(alloc, scene, device, options, uniform_buf);
         const blit = try Blit.init(alloc, device, rt.tex_view, uniform_buf);
 
         var out = Renderer{
@@ -65,6 +67,14 @@ pub const Renderer = struct {
         };
 
         return out;
+    }
+
+    pub fn get_options(self: *const Self) Options {
+        return .{
+            .samples_per_frame = self.uniforms.samples_per_frame,
+            .width = self.uniforms.width_px,
+            .height = self.uniforms.height_px,
+        };
     }
 
     fn update_uniforms(self: *const Self) void {

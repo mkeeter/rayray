@@ -4,6 +4,7 @@ const std = @import("std");
 const c = @import("c.zig");
 const Options = @import("options.zig").Options;
 const Renderer = @import("renderer.zig").Renderer;
+const Scene = @import("scene.zig").Scene;
 const Gui = @import("gui.zig").Gui;
 
 pub const Window = struct {
@@ -96,6 +97,7 @@ pub const Window = struct {
         _ = c.glfwSetWindowUserPointer(window, out);
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
 
+        const scene = try Scene.new_simple_scene(alloc);
         out.* = .{
             .alloc = alloc,
             .window = window,
@@ -103,7 +105,7 @@ pub const Window = struct {
             .queue = c.wgpu_device_get_default_queue(device),
             .surface = surface,
             .swap_chain = undefined,
-            .renderer = try Renderer.init(alloc, options, device),
+            .renderer = try Renderer.init(alloc, scene, options, device),
             .gui = try Gui.init(alloc, window, device),
             .show_editor = false,
             .show_gui_demo = false,
@@ -145,6 +147,25 @@ pub const Window = struct {
         var menu_width: f32 = 0;
         var menu_height: f32 = 0;
         if (c.igBeginMainMenuBar()) {
+            if (c.igBeginMenu("Scene", true)) {
+                var new_scene_fn: ?fn (alloc: *std.mem.Allocator) anyerror!Scene = null;
+                if (c.igMenuItemBool("Simple", "", false, true)) {
+                    new_scene_fn = Scene.new_simple_scene;
+                }
+                if (c.igMenuItemBool("Cornell Box", "", false, true)) {
+                    new_scene_fn = Scene.new_cornell_box;
+                }
+                if (c.igMenuItemBool("Ray Tracing in One Weekend", "", false, true)) {
+                    new_scene_fn = Scene.new_rtiow;
+                }
+                if (new_scene_fn) |f| {
+                    const options = self.renderer.get_options();
+                    self.renderer.deinit();
+                    const scene = try f(self.alloc);
+                    self.renderer = try Renderer.init(self.alloc, scene, options, self.device);
+                }
+                c.igEndMenu();
+            }
             if (c.igBeginMenu("View", true)) {
                 _ = c.igMenuItemBoolPtr("Show editor", "", &self.show_editor, true);
                 _ = c.igMenuItemBoolPtr("Show GUI demo", "", &self.show_gui_demo, true);

@@ -8,7 +8,7 @@ A tiny GPU raytracer!
     - Infinite planes
 - Any shape can be a light!
 - Antialiasing with sub-pixel sampling
-- Will crash your entire computer if you render too many rays per frame
+- Will **crash your entire computer** if you render too many rays per frame
   (thanks, GPU drivers)
 
 ## Implementation
@@ -17,5 +17,7 @@ A tiny GPU raytracer!
 - Using [WebGPU](https://gpuweb.github.io/gpuweb/) for graphics
   via [`wgpu-native`](https://github.com/gfx-rs/wgpu-native)
 - Shaders compiled from GLSL to SPIR-V with [`shaderc`](https://github.com/google/shaderc)
-- Slightly based on [_Ray Tracing in One Weekend_](https://raytracing.github.io/books/RayTracingInOneWeekend.html),
-  but using a data-driven design to run on the GPU.
+- Minimal GUI using [Dear ImGUI](https://github.com/ocornut/imgui),
+  with a custom [Zig + WebGPU backend](https://github.com/mkeeter/rayray/blob/master/src/gui/backend.zig)
+- Vaguely based on [_Ray Tracing in One Weekend_](https://raytracing.github.io/books/RayTracingInOneWeekend.html),
+  with a data-driven design to run on the GPU.

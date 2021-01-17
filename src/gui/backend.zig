@@ -14,6 +14,7 @@ pub const Backend = struct {
     const Self = @This();
 
     alloc: *std.mem.Allocator,
+    initialized: bool = false,
 
     pixel_density: f32,
     font_ttf: []u8,
@@ -286,8 +287,9 @@ pub const Backend = struct {
         };
 
         // Create the initial vertices and bind groups
-        out.ensure_buf_size_(@sizeOf(c.ImDrawVert), @sizeOf(c.ImDrawIdx), false);
-        out.rebuild_font(io, 1, false);
+        out.ensure_buf_size(@sizeOf(c.ImDrawVert), @sizeOf(c.ImDrawIdx));
+        out.rebuild_font(io, 1);
+        out.initialized = true;
 
         return out;
     }
@@ -333,7 +335,7 @@ pub const Backend = struct {
         );
     }
 
-    fn rebuild_font(self: *Self, io: [*c]c.ImGuiIO, pixel_density: f32, del_prev: bool) void {
+    fn rebuild_font(self: *Self, io: [*c]c.ImGuiIO, pixel_density: f32) void {
         // Clear any existing font atlas
         c.ImFontAtlas_Clear(io.*.Fonts);
 
@@ -358,7 +360,7 @@ pub const Backend = struct {
         ///////////////////////////////////////////////////////////////////////
         // Font texture
         const font = Font.from_io(io);
-        if (del_prev) {
+        if (self.initialized) {
             c.wgpu_texture_destroy(self.font_tex);
             c.wgpu_texture_view_destroy(self.font_tex_view);
         }
@@ -429,13 +431,13 @@ pub const Backend = struct {
         c.wgpu_render_pipeline_destroy(self.render_pipeline);
     }
 
-    fn ensure_buf_size_(self: *Self, vtx_bytes: usize, idx_bytes: usize, del_prev_buf: bool) void {
+    fn ensure_buf_size(self: *Self, vtx_bytes: usize, idx_bytes: usize) void {
         if (vtx_bytes <= self.vertex_buf_size and idx_bytes <= self.index_buf_size) {
             return;
         }
         if (vtx_bytes > self.vertex_buf_size) {
             // Regenerate vertex buf
-            if (del_prev_buf) {
+            if (self.initialized) {
                 c.wgpu_buffer_destroy(self.vertex_buf);
             }
             self.vertex_buf_size = vtx_bytes;
@@ -451,7 +453,7 @@ pub const Backend = struct {
         }
         if (idx_bytes > self.index_buf_size) {
             // Regenerate index buf
-            if (del_prev_buf) {
+            if (self.initialized) {
                 c.wgpu_buffer_destroy(self.index_buf);
             }
             self.index_buf = c.wgpu_device_create_buffer(
@@ -467,15 +469,11 @@ pub const Backend = struct {
         }
     }
 
-    fn ensure_buf_size(self: *Self, vtx_bytes: usize, num_index: usize) void {
-        self.ensure_buf_size_(vtx_bytes, num_index, true);
-    }
-
     pub fn new_frame(self: *Self) void {
         const io = c.igGetIO() orelse std.debug.panic("Could not get io\n", .{});
         const pixel_density = io.*.DisplayFramebufferScale.x;
         if (pixel_density != self.pixel_density) {
-            self.rebuild_font(io, pixel_density, true);
+            self.rebuild_font(io, pixel_density);
         }
     }
 

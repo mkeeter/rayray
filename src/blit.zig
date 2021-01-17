@@ -8,6 +8,8 @@ const Viewport = @import("viewport.zig").Viewport;
 pub const Blit = struct {
     const Self = @This();
 
+    initialized: bool = false,
+
     device: c.WGPUDeviceId,
     queue: c.WGPUQueueId,
 
@@ -190,18 +192,17 @@ pub const Blit = struct {
             .bind_group_layout = bind_group_layout,
             .bind_group = undefined, // Assigned in bind_to_tex below
         };
-        out.bind_(tex_view, uniform_buf, false);
+        out.bind(tex_view, uniform_buf);
+        out.initialized = true;
         return out;
     }
 
-    // Unchecked bind_to_tex variation, for use in constructor
-    fn bind_(
+    pub fn bind(
         self: *Self,
         tex_view: c.WGPUTextureViewId,
         uniform_buf: c.WGPUBufferId,
-        del_prev: bool,
     ) void {
-        if (del_prev) {
+        if (self.initialized) {
             c.wgpu_bind_group_destroy(self.bind_group);
         }
         const bind_group_entries = [_]c.WGPUBindGroupEntry{
@@ -242,14 +243,6 @@ pub const Blit = struct {
                 .entries_length = bind_group_entries.len,
             },
         );
-    }
-
-    pub fn bind(
-        self: *Self,
-        tex_view: c.WGPUTextureViewId,
-        uniform_buf: c.WGPUBufferId,
-    ) void {
-        self.bind_(tex_view, uniform_buf, true);
     }
 
     pub fn deinit(self: *Self) void {

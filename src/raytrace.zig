@@ -10,6 +10,7 @@ pub const Raytrace = struct {
     const Self = @This();
 
     alloc: *std.mem.Allocator,
+    initialized: bool = false,
 
     // GPU handles
     device: c.WGPUDeviceId,
@@ -180,8 +181,9 @@ pub const Raytrace = struct {
 
             .render_pipeline = render_pipeline,
         };
-        out.resize_(options.width, options.height, false);
-        try out.upload_scene_(scene, false);
+        out.resize(options.width, options.height);
+        try out.upload_scene(scene);
+        out.initialized = true;
         return out;
     }
 
@@ -200,8 +202,8 @@ pub const Raytrace = struct {
         c.wgpu_render_pipeline_destroy(self.render_pipeline);
     }
 
-    fn resize_(self: *Self, width: u32, height: u32, del_prev_tex: bool) void {
-        if (del_prev_tex) {
+    pub fn resize(self: *Self, width: u32, height: u32) void {
+        if (self.initialized) {
             self.destroy_textures();
         }
         self.tex = c.wgpu_device_create_texture(
@@ -239,20 +241,16 @@ pub const Raytrace = struct {
         );
     }
 
-    pub fn resize(self: *Self, width: u32, height: u32) void {
-        self.resize_(width, height, true);
-    }
-
     // Copies the scene from self.scene to the GPU, rebuilding the bind
     // group if the buffer has been resized (which would invalidate it)
-    fn upload_scene_(self: *Self, scene: Scene, del_prev: bool) !void {
+    pub fn upload_scene(self: *Self, scene: Scene) !void {
         const encoded = try scene.encode();
         defer self.alloc.free(encoded);
 
         const scene_buffer_len = encoded.len * @sizeOf(c.vec4);
 
         if (scene_buffer_len > self.scene_buffer_len) {
-            if (del_prev) {
+            if (self.initialized) {
                 c.wgpu_buffer_destroy(self.scene_buffer);
                 c.wgpu_bind_group_destroy(self.bind_group);
             }
@@ -306,10 +304,6 @@ pub const Raytrace = struct {
             @ptrCast([*c]const u8, encoded.ptr),
             encoded.len * @sizeOf(c.vec4),
         );
-    }
-
-    pub fn upload_scene(self: *Self, scene: Scene) !void {
-        try self.upload_scene_(scene, true);
     }
 
     pub fn draw(self: *Self, first: bool, cmd_encoder: c.WGPUCommandEncoderId) !void {

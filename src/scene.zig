@@ -463,7 +463,7 @@ pub const Scene = struct {
         defer arena.deinit();
 
         var out = try std.fmt.allocPrint(tmp_alloc,
-            \\vec3 trace(vec3 pos, uint shape) {{
+            \\hit_t trace(vec3 start, vec3 dir) {{
             \\  float best_dist = 1e8;
             \\  uint best_hit = 0;
             \\  float dist;
@@ -475,7 +475,7 @@ pub const Scene = struct {
                 tmp_alloc,
                 \\{s}
                 \\  dist = {s};
-                \\  if (dist < best_dist) {{
+                \\  if (dist > SURFACE_EPSILON && dist < best_dist) {{
                 \\    best_dist = dist;
                 \\    best_hit = {};
                 \\  }}

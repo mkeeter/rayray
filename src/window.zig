@@ -183,9 +183,8 @@ pub const Window = struct {
 
             c.igEndMainMenuBar();
         }
-        var changed = false;
         if (self.show_editor) {
-            changed = try self.renderer.draw_gui(menu_height, &menu_width);
+            try self.renderer.draw_gui(menu_height, &menu_width);
         }
 
         if (self.show_gui_demo) {
@@ -197,7 +196,6 @@ pub const Window = struct {
         const window_width = io.*.DisplaySize.x;
         const window_height = io.*.DisplaySize.y;
         try self.renderer.draw(
-            changed,
             .{
                 .width = (window_width - menu_width) * pixel_density,
                 .height = (window_height - menu_height) * pixel_density,

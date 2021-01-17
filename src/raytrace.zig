@@ -28,8 +28,6 @@ pub const Raytrace = struct {
 
     render_pipeline: c.WGPURenderPipelineId,
 
-    scene: Scene,
-
     pub fn init(
         alloc: *std.mem.Allocator,
         scene: Scene,
@@ -63,19 +61,6 @@ pub const Raytrace = struct {
             },
         );
         defer c.wgpu_shader_module_destroy(frag_shader);
-
-        ////////////////////////////////////////////////////////////////////////
-        // Make a dummy scene buffer; we'll later resize to fit the scene
-        const scene_buffer_len = 4;
-        const scene_buffer = c.wgpu_device_create_buffer(
-            device,
-            &(c.WGPUBufferDescriptor){
-                .label = "raytrace scene",
-                .size = scene_buffer_len,
-                .usage = c.WGPUBufferUsage_STORAGE | c.WGPUBufferUsage_COPY_DST,
-                .mapped_at_creation = false,
-            },
-        );
 
         ////////////////////////////////////////////////////////////////////////////
         // Bind groups
@@ -187,17 +172,16 @@ pub const Raytrace = struct {
             .bind_group = undefined, // assigned in upload_scene() below
             .bind_group_layout = bind_group_layout,
             .scene_buffer = undefined, // assigned in upload_scene() below
-            .scene_buffer_len = scene_buffer_len,
+            .scene_buffer_len = 0,
             .uniform_buffer = uniform_buf,
 
             .tex = undefined, // assigned in resize() below
             .tex_view = undefined, // assigned in resize() below
 
             .render_pipeline = render_pipeline,
-            .scene = scene,
         };
         out.resize_(options.width, options.height, false);
-        try out.upload_scene_(false);
+        try out.upload_scene_(scene, false);
         return out;
     }
 
@@ -208,7 +192,6 @@ pub const Raytrace = struct {
 
     pub fn deinit(self: *Self) void {
         self.destroy_textures();
-        self.scene.deinit();
 
         c.wgpu_bind_group_destroy(self.bind_group);
         c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
@@ -262,8 +245,8 @@ pub const Raytrace = struct {
 
     // Copies the scene from self.scene to the GPU, rebuilding the bind
     // group if the buffer has been resized (which would invalidate it)
-    fn upload_scene_(self: *Self, del_prev: bool) !void {
-        const encoded = try self.scene.encode();
+    fn upload_scene_(self: *Self, scene: Scene, del_prev: bool) !void {
+        const encoded = try scene.encode();
         defer self.alloc.free(encoded);
 
         const scene_buffer_len = encoded.len * @sizeOf(c.vec4);
@@ -325,15 +308,11 @@ pub const Raytrace = struct {
         );
     }
 
-    fn upload_scene(self: *Self) !void {
-        try self.upload_scene_(true);
+    pub fn upload_scene(self: *Self, scene: Scene) !void {
+        try self.upload_scene_(scene, true);
     }
 
     pub fn draw(self: *Self, first: bool, cmd_encoder: c.WGPUCommandEncoderId) !void {
-        if (first) {
-            try self.upload_scene();
-        }
-
         const load_op = if (first)
             c.WGPULoadOp._Clear
         else

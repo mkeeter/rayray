@@ -15,6 +15,8 @@ pub const Renderer = struct {
     device: c.WGPUDeviceId,
     queue: c.WGPUQueueId,
 
+    scene: Scene,
+
     raytrace: Raytrace,
     blit: Blit,
 
@@ -51,6 +53,7 @@ pub const Renderer = struct {
 
             .raytrace = rt,
             .blit = blit,
+            .scene = scene,
 
             .uniforms = .{
                 .width_px = options.width,
@@ -58,7 +61,7 @@ pub const Renderer = struct {
                 .samples = 0,
                 .samples_per_frame = options.samples_per_frame,
 
-                .camera = rt.scene.camera,
+                .camera = scene.camera,
             },
             .uniform_buf = uniform_buf,
 
@@ -104,14 +107,14 @@ pub const Renderer = struct {
         const w = c.igGetWindowWidth() - c.igGetCursorPosX();
         c.igIndent(w * 0.25);
         if (c.igButton("Reset", .{ .x = w * 0.5, .y = 0 })) {
-            self.uniforms.camera = self.raytrace.scene.camera;
+            self.uniforms.camera = self.scene.camera;
             changed = true;
         }
         c.igUnindent(w * 0.25);
         return changed;
     }
 
-    pub fn draw_gui(self: *Self, menu_height: f32, menu_width: *f32) !bool {
+    pub fn draw_gui(self: *Self, menu_height: f32, menu_width: *f32) !void {
         var changed = false;
 
         c.igPushStyleVarFloat(c.ImGuiStyleVar_WindowRounding, 0.0);
@@ -134,23 +137,26 @@ pub const Renderer = struct {
             }
 
             if (c.igCollapsingHeaderBoolPtr("Shapes", null, 0)) {
-                changed = (try self.raytrace.scene.draw_shapes_gui()) or changed;
+                changed = (try self.scene.draw_shapes_gui()) or changed;
             }
 
             if (c.igCollapsingHeaderBoolPtr("Materials", null, 0)) {
-                changed = (try self.raytrace.scene.draw_materials_gui()) or changed;
+                changed = (try self.scene.draw_materials_gui()) or changed;
             }
             menu_width.* = c.igGetWindowWidth();
         }
 
         c.igEnd();
         c.igPopStyleVar(2);
-        return changed;
+
+        if (changed) {
+            try self.raytrace.upload_scene(self.scene);
+            self.uniforms.samples = 0;
+        }
     }
 
     pub fn draw(
         self: *Self,
-        clear: bool,
         viewport: Viewport,
         next_texture: c.WGPUSwapChainOutput,
         cmd_encoder: c.WGPUCommandEncoderId,
@@ -159,10 +165,6 @@ pub const Renderer = struct {
         const height = @floatToInt(u32, viewport.height);
         if (width != self.uniforms.width_px or height != self.uniforms.height_px) {
             self.update_size(width, height);
-        }
-
-        if (clear) {
-            self.uniforms.samples = 0;
         }
 
         self.update_uniforms();
@@ -221,6 +223,7 @@ pub const Renderer = struct {
     pub fn deinit(self: *Self) void {
         self.blit.deinit();
         self.raytrace.deinit();
+        self.scene.deinit();
         c.wgpu_buffer_destroy(self.uniform_buf);
     }
 

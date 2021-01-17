@@ -2,7 +2,6 @@ const std = @import("std");
 
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
-const Options = @import("options.zig").Options;
 
 const Scene = @import("scene.zig").Scene;
 
@@ -15,10 +14,6 @@ pub const Raytrace = struct {
     // GPU handles
     device: c.WGPUDeviceId,
     queue: c.WGPUQueueId,
-
-    // We accumulate rays into this texture, then blit it to the screen
-    tex: c.WGPUTextureId,
-    tex_view: c.WGPUTextureViewId,
 
     bind_group: c.WGPUBindGroupId,
     bind_group_layout: c.WGPUBindGroupLayoutId,
@@ -33,7 +28,6 @@ pub const Raytrace = struct {
         alloc: *std.mem.Allocator,
         scene: Scene,
         device: c.WGPUDeviceId,
-        options: Options,
         uniform_buf: c.WGPUBufferId,
     ) !Self {
         var arena = std.heap.ArenaAllocator.init(alloc);
@@ -176,69 +170,19 @@ pub const Raytrace = struct {
             .scene_buffer_len = 0,
             .uniform_buffer = uniform_buf,
 
-            .tex = undefined, // assigned in resize() below
-            .tex_view = undefined, // assigned in resize() below
-
             .render_pipeline = render_pipeline,
         };
-        out.resize(options.width, options.height);
         try out.upload_scene(scene);
         out.initialized = true;
         return out;
     }
 
-    fn destroy_textures(self: *Self) void {
-        c.wgpu_texture_destroy(self.tex);
-        c.wgpu_texture_view_destroy(self.tex_view);
-    }
-
     pub fn deinit(self: *Self) void {
-        self.destroy_textures();
-
         c.wgpu_bind_group_destroy(self.bind_group);
         c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
         c.wgpu_buffer_destroy(self.scene_buffer);
 
         c.wgpu_render_pipeline_destroy(self.render_pipeline);
-    }
-
-    pub fn resize(self: *Self, width: u32, height: u32) void {
-        if (self.initialized) {
-            self.destroy_textures();
-        }
-        self.tex = c.wgpu_device_create_texture(
-            self.device,
-            &(c.WGPUTextureDescriptor){
-                .size = .{
-                    .width = width,
-                    .height = height,
-                    .depth = 1,
-                },
-                .mip_level_count = 1,
-                .sample_count = 1,
-                .dimension = c.WGPUTextureDimension._D2,
-                .format = c.WGPUTextureFormat._Rgba32Float,
-
-                // We render to this texture, then use it as a source when
-                // blitting into the final UI image
-                .usage = (c.WGPUTextureUsage_OUTPUT_ATTACHMENT |
-                    c.WGPUTextureUsage_SAMPLED),
-                .label = "raytrace_tex",
-            },
-        );
-        self.tex_view = c.wgpu_texture_create_view(
-            self.tex,
-            &(c.WGPUTextureViewDescriptor){
-                .label = "raytrace_tex_view",
-                .dimension = c.WGPUTextureViewDimension._D2,
-                .format = c.WGPUTextureFormat._Rgba32Float,
-                .aspect = c.WGPUTextureAspect._All,
-                .base_mip_level = 0,
-                .level_count = 1,
-                .base_array_layer = 0,
-                .array_layer_count = 1,
-            },
-        );
     }
 
     // Copies the scene from self.scene to the GPU, rebuilding the bind
@@ -306,14 +250,14 @@ pub const Raytrace = struct {
         );
     }
 
-    pub fn draw(self: *Self, first: bool, cmd_encoder: c.WGPUCommandEncoderId) !void {
+    pub fn draw(self: *Self, first: bool, tex_view: c.WGPUTextureViewId, cmd_encoder: c.WGPUCommandEncoderId) !void {
         const load_op = if (first)
             c.WGPULoadOp._Clear
         else
             c.WGPULoadOp._Load;
         const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
             (c.WGPURenderPassColorAttachmentDescriptor){
-                .attachment = self.tex_view,
+                .attachment = tex_view,
                 .resolve_target = 0,
                 .channel = (c.WGPUPassChannel_Color){
                     .load_op = load_op,

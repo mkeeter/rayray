@@ -12,10 +12,16 @@ const Viewport = @import("viewport.zig").Viewport;
 pub const Renderer = struct {
     const Self = @This();
 
+    initialized: bool = false,
+
     device: c.WGPUDeviceId,
     queue: c.WGPUQueueId,
 
     scene: Scene,
+
+    // We accumulate rays into this texture, then blit it to the screen
+    tex: c.WGPUTextureId,
+    tex_view: c.WGPUTextureViewId,
 
     raytrace: Raytrace,
     blit: Blit,
@@ -44,20 +50,23 @@ pub const Renderer = struct {
             },
         );
 
-        const rt = try Raytrace.init(alloc, scene, device, options, uniform_buf);
-        const blit = try Blit.init(alloc, device, rt.tex_view, uniform_buf);
-
         var out = Renderer{
             .device = device,
             .queue = c.wgpu_device_get_default_queue(device),
 
-            .raytrace = rt,
-            .blit = blit,
+            .raytrace = try Raytrace.init(alloc, scene, device, uniform_buf),
+            .blit = undefined, // Built after resize()
             .scene = scene,
 
+            // Populated in update_size()
+            .tex = undefined,
+            .tex_view = undefined,
+
             .uniforms = .{
-                .width_px = options.width,
-                .height_px = options.height,
+                // Populated in update_size()
+                .width_px = undefined,
+                .height_px = undefined,
+
                 .samples = 0,
                 .samples_per_frame = options.samples_per_frame,
 
@@ -68,6 +77,9 @@ pub const Renderer = struct {
             .start_time_ms = 0,
             .frame = 0,
         };
+        out.update_size(options.width, options.height);
+        out.blit = try Blit.init(alloc, device, out.tex_view, uniform_buf);
+        out.initialized = true;
 
         return out;
     }
@@ -175,7 +187,7 @@ pub const Renderer = struct {
         }
 
         // Cast another set of rays, one per pixel
-        try self.raytrace.draw(self.uniforms.samples == 0, cmd_encoder);
+        try self.raytrace.draw(self.uniforms.samples == 0, self.tex_view, cmd_encoder);
         self.uniforms.samples += self.uniforms.samples_per_frame;
         self.frame += 1;
 
@@ -224,17 +236,61 @@ pub const Renderer = struct {
         self.blit.deinit();
         self.raytrace.deinit();
         self.scene.deinit();
+        self.destroy_textures();
         c.wgpu_buffer_destroy(self.uniform_buf);
     }
 
+    fn destroy_textures(self: *Self) void {
+        c.wgpu_texture_destroy(self.tex);
+        c.wgpu_texture_view_destroy(self.tex_view);
+    }
+
     pub fn update_size(self: *Self, width: u32, height: u32) void {
+        if (self.initialized) {
+            self.destroy_textures();
+        }
+        self.tex = c.wgpu_device_create_texture(
+            self.device,
+            &(c.WGPUTextureDescriptor){
+                .size = .{
+                    .width = width,
+                    .height = height,
+                    .depth = 1,
+                },
+                .mip_level_count = 1,
+                .sample_count = 1,
+                .dimension = c.WGPUTextureDimension._D2,
+                .format = c.WGPUTextureFormat._Rgba32Float,
+
+                // We render to this texture, then use it as a source when
+                // blitting into the final UI image
+                .usage = (c.WGPUTextureUsage_OUTPUT_ATTACHMENT |
+                    c.WGPUTextureUsage_SAMPLED),
+                .label = "raytrace_tex",
+            },
+        );
+        self.tex_view = c.wgpu_texture_create_view(
+            self.tex,
+            &(c.WGPUTextureViewDescriptor){
+                .label = "raytrace_tex_view",
+                .dimension = c.WGPUTextureViewDimension._D2,
+                .format = c.WGPUTextureFormat._Rgba32Float,
+                .aspect = c.WGPUTextureAspect._All,
+                .base_mip_level = 0,
+                .level_count = 1,
+                .base_array_layer = 0,
+                .array_layer_count = 1,
+            },
+        );
+
         self.uniforms.width_px = width;
         self.uniforms.height_px = height;
         self.uniforms.samples = 0;
 
         self.start_time_ms = std.time.milliTimestamp();
 
-        self.raytrace.resize(width, height);
-        self.blit.bind(self.raytrace.tex_view, self.uniform_buf);
+        if (self.initialized) {
+            self.blit.bind(self.tex_view, self.uniform_buf);
+        }
     }
 };

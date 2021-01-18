@@ -23,13 +23,14 @@ typedef struct {
 #define SHAPE_NONE 0
 #define SHAPE_SPHERE 1
 #define SHAPE_INFINITE_PLANE 2
-#define SHAPE_FINITE_PLANE 3
+#define LAST_SHAPE 3
 
 #define MAT_NONE 0
 #define MAT_DIFFUSE 1
 #define MAT_LIGHT 2
 #define MAT_METAL 3
 #define MAT_GLASS 4
+#define LAST_MAT 5
 
 ////////////////////////////////////////////////////////////////////////////////
 

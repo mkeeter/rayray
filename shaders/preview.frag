@@ -56,8 +56,7 @@ bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color) {
             norm = norm_sphere(pos, d.xyz);
             break;
         }
-        case SHAPE_INFINITE_PLANE: // fallthrough
-        case SHAPE_FINITE_PLANE: {
+        case SHAPE_INFINITE_PLANE: { // fallthrough
             vec4 d = scene_data[offset];
             norm = norm_plane(d.xyz);
             break;

@@ -51,7 +51,7 @@ pub const Preview = struct {
             },
         );
         defer c.wgpu_shader_module_destroy(vert_shader);
-        const frag_spv = try shaderc.build_shader_from_file(tmp_alloc, "shaders/prview.frag");
+        const frag_spv = try shaderc.build_shader_from_file(tmp_alloc, "shaders/preview.frag");
         const frag_shader = c.wgpu_device_create_shader_module(
             device,
             (c.WGPUShaderSource){

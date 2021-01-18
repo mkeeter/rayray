@@ -6,28 +6,11 @@ layout(set=0, binding=1) buffer Scene {
     vec4[] scene_data;
 };
 
-vec3 norm(vec3 pos, uvec4 shape) {
-    uint offset = shape.y;
-    switch (shape.x) {
-        case SHAPE_SPHERE: {
-            vec4 d = scene_data[offset];
-            return norm_sphere(pos, d.xyz);
-        }
-        case SHAPE_INFINITE_PLANE: // fallthrough
-        case SHAPE_FINITE_PLANE: {
-            vec4 d = scene_data[offset];
-            return norm_plane(pos, d.xyz);
-        }
-        default: // unimplemented
-            return vec3(0);
-    }
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // The lowest-level building block:
-//  Raytraces to the next object in the scene,
-//  returning a hit_t object of [pos, index]
-uint trace(inout vec3 start, vec3 dir) {
+//  Raytraces to the next object in the scene, updating state variables.
+//  Returns true if we should terminate, false otherwise
+bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color) {
     float best_dist = 1e8;
     uint best_hit = 0;
     const uint num_shapes = floatBitsToUint(scene_data[0].x);
@@ -39,12 +22,12 @@ uint trace(inout vec3 start, vec3 dir) {
         switch (shape.x) {
             case SHAPE_SPHERE: {
                 vec4 d = scene_data[offset];
-                dist = hit_sphere(start, dir, d.xyz, d.w);
+                dist = hit_sphere(pos, dir, d.xyz, d.w);
                 break;
             }
             case SHAPE_INFINITE_PLANE: {
                 vec4 d = scene_data[offset];
-                dist = hit_plane(start, dir, d.xyz, d.w);
+                dist = hit_plane(pos, dir, d.xyz, d.w);
                 break;
             }
             default: // unimplemented shape
@@ -55,18 +38,31 @@ uint trace(inout vec3 start, vec3 dir) {
             best_hit = i;
         }
     }
-    if (best_hit != 0) {
-        start = start + dir*best_dist;
-    }
-    return best_hit;
-}
 
-bool mat(inout uint seed, inout vec3 color, inout vec3 dir,
-         uint index, vec3 pos)
-{
-    // Extract the shape so we can pull the material
-    uvec4 shape = floatBitsToUint(scene_data[index]);
-    vec3 norm = norm(pos, shape);
+    // If we missed all objects, terminate immediately with blackness
+    if (best_hit == 0) {
+        color = vec3(0);
+        return true;
+    }
+    pos = pos + dir*best_dist;
+
+    // Extract the shape, then compute its normal and material
+    uvec4 shape = floatBitsToUint(scene_data[best_hit]);
+    uint offset = shape.y;
+    vec3 norm = vec3(0);
+    switch (shape.x) {
+        case SHAPE_SPHERE: {
+            vec4 d = scene_data[offset];
+            norm = norm_sphere(pos, d.xyz);
+            break;
+        }
+        case SHAPE_INFINITE_PLANE: // fallthrough
+        case SHAPE_FINITE_PLANE: {
+            vec4 d = scene_data[offset];
+            norm = norm_plane(d.xyz);
+            break;
+        }
+    }
 
     // Look at the material and decide whether to terminate
     uint mat_offset = shape.z;
@@ -75,20 +71,19 @@ bool mat(inout uint seed, inout vec3 color, inout vec3 dir,
     switch (mat_type) {
         // When we hit a light, return immediately
         case MAT_LIGHT:
-            color *= scene_data[mat_offset].xyz;
-            return true;
+            return mat_light(color, scene_data[mat_offset].xyz);
 
         // Otherwise, handle the various material types
         case MAT_DIFFUSE:
-            mat_diffuse(seed, color, dir, norm, scene_data[mat_offset].xyz);
-            break;
+            return mat_diffuse(seed, color, dir, norm, scene_data[mat_offset].xyz);
         case MAT_METAL:
-            mat_metal(seed, color, dir, norm, scene_data[mat_offset].xyz,
-                    scene_data[mat_offset].w);
-            break;
+            return mat_metal(seed, color, dir, norm, scene_data[mat_offset].xyz,
+                             scene_data[mat_offset].w);
         case MAT_GLASS:
-            mat_glass(seed, color, dir, norm, scene_data[mat_offset].w);
-            break;
+            return mat_glass(seed, color, dir, norm, scene_data[mat_offset].w);
     }
-    return false;
+
+    // Reaching here is an error, so set the color to green and terminate
+    color = vec3(0, 1, 0);
+    return true;
 }

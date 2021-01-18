@@ -442,47 +442,17 @@ pub const Scene = struct {
         return changed;
     }
 
-    pub fn norm_glsl(self: *const Self) ![]const u8 {
-        var arena = std.heap.ArenaAllocator.init(self.alloc);
-        const tmp_alloc: *std.mem.Allocator = &arena.allocator;
-        defer arena.deinit();
-
-        var out = try std.fmt.allocPrint(tmp_alloc,
-            \\vec3 norm(vec3 pos, uint shape) {{
-            \\  switch(shape) {{
-            \\    case 0: return vec3(0); // Invalid
-        , .{});
-        var i: usize = 0;
-        for (self.shapes.items) |shape| {
-            const line = try shape.norm_glsl(tmp_alloc);
-            out = try std.fmt.allocPrint(
-                tmp_alloc,
-                "{s}\n    case {}: return {s};",
-                .{ out, i + 1, line },
-            );
-            i += 1;
-        }
-
-        // Close up the function, and switch to the non-temporary allocator
-        out = try std.fmt.allocPrint(self.alloc,
-            \\{s}
-            \\  default: return vec3(0); // Also invalid
-            \\  }}
-            \\}}
-        , .{out});
-        return out;
-    }
-
     pub fn trace_glsl(self: *const Self) ![]const u8 {
         var arena = std.heap.ArenaAllocator.init(self.alloc);
         const tmp_alloc: *std.mem.Allocator = &arena.allocator;
         defer arena.deinit();
 
         var out = try std.fmt.allocPrint(tmp_alloc,
-            \\hit_t trace(vec3 start, vec3 dir) {{
-            \\  float best_dist = 1e8;
-            \\  uint best_hit = 0;
-            \\  float dist;
+            \\uint trace(inout vec3 start, vec3 dir) {{
+            \\    float best_dist = 1e8;
+            \\    vec3 norm = vec3(0);
+            \\    uint best_hit = 0;
+            \\    float dist;
         , .{});
         var i: usize = 1;
         for (self.shapes.items) |shape| {
@@ -490,11 +460,11 @@ pub const Scene = struct {
             out = try std.fmt.allocPrint(
                 tmp_alloc,
                 \\{s}
-                \\  dist = {s};
-                \\  if (dist > SURFACE_EPSILON && dist < best_dist) {{
-                \\    best_dist = dist;
-                \\    best_hit = {};
-                \\  }}
+                \\    dist = {s};
+                \\    if (dist > SURFACE_EPSILON && dist < best_dist) {{
+                \\        best_dist = dist;
+                \\        best_hit = {};
+                \\    }}
             ,
                 .{ out, try shape.hit_glsl(tmp_alloc), i },
             );
@@ -504,11 +474,50 @@ pub const Scene = struct {
         // Close up the function, and switch to the non-temporary allocator
         out = try std.fmt.allocPrint(self.alloc,
             \\{s}
-            \\  hit_t t = {{vec3(0), best_hit}};
-            \\  if (best_hit != 0) {{
-            \\    t.pos = start + dir*best_dist;
-            \\  }}
-            \\  return t;
+            \\    if (best_hit != 0) {{
+            \\        start += dir*best_dist;
+            \\    }}
+            \\    return best_hit;
+            \\}}
+        , .{out});
+        return out;
+    }
+
+    pub fn mat_glsl(self: *const Self) ![]const u8 {
+        var arena = std.heap.ArenaAllocator.init(self.alloc);
+        const tmp_alloc: *std.mem.Allocator = &arena.allocator;
+        defer arena.deinit();
+
+        var out = try std.fmt.allocPrint(tmp_alloc,
+            \\bool mat(inout uint seed, inout vec3 color, inout vec3 dir,
+            \\         uint index, vec3 pos)
+            \\{{
+            \\    switch (index) {{
+        , .{});
+
+        var i: usize = 1;
+        for (self.shapes.items) |shape| {
+            const norm = try shape.norm_glsl(tmp_alloc);
+            const mat = try self.materials.items[shape.mat].mat_glsl(tmp_alloc);
+            out = try std.fmt.allocPrint(
+                tmp_alloc,
+                \\{s}
+                \\        case {}: {{
+                \\            vec3 norm = {s};
+                \\            return {s};
+                \\        }}
+            ,
+                .{ out, i, norm, mat },
+            );
+            i += 1;
+        }
+
+        // Close up the function, and switch to the non-temporary allocator
+        out = try std.fmt.allocPrint(self.alloc,
+            \\{s}
+            \\        default: break;
+            \\    }}
+            \\    return false;
             \\}}
         , .{out});
         return out;

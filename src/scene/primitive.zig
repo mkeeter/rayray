@@ -33,7 +33,7 @@ pub const Sphere = struct {
     pub fn hit_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
         return std.fmt.allocPrint(
             alloc,
-            "hit_sphere(start, dir, vec3({}, {}, {}), {})",
+            "hit_sphere(pos, dir, vec3({}, {}, {}), {})",
             .{ self.center.x, self.center.y, self.center.z, self.radius },
         );
     }
@@ -71,7 +71,7 @@ pub const InfinitePlane = struct {
     pub fn hit_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
         return std.fmt.allocPrint(
             alloc,
-            "hit_plane(start, dir,  vec3({}, {}, {}), {})",
+            "hit_plane(pos, dir,  vec3({}, {}, {}), {})",
             .{ self.normal.x, self.normal.y, self.normal.z, self.offset },
         );
     }

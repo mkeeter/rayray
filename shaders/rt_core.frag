@@ -17,7 +17,7 @@ layout(location=0) out vec4 fragColor;
 // Forward declarations
 bool mat(inout uint seed, inout vec3 color, inout vec3 dir,
          uint index, vec3 pos);
-uint trace(inout vec3 start, vec3 dir);
+bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Jenkins hash function, specialized for a uint key
@@ -131,7 +131,7 @@ float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     }
 }
 
-vec3 norm_plane(vec3 pos, vec3 norm) {
+vec3 norm_plane(vec3 norm) {
     return norm;
 }
 
@@ -141,15 +141,21 @@ vec3 norm_sphere(vec3 pos, vec3 center) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void mat_diffuse(inout uint seed, inout vec3 color, inout vec3 dir,
+bool mat_light(inout vec3 color, vec3 light_color) {
+    color *= light_color;
+    return true;
+}
+
+bool mat_diffuse(inout uint seed, inout vec3 color, inout vec3 dir,
                  vec3 norm, vec3 diffuse_color)
 {
     color *= diffuse_color;
     dir = sanitize_dir(norm + rand3_on_sphere(seed), norm);
+    return false;
 }
 
-void mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
-                 vec3 norm, vec3 metal_color, float fuzz)
+bool mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
+               vec3 norm, vec3 metal_color, float fuzz)
 {
     color *= metal_color;
     dir -= norm * dot(norm, dir)*2;
@@ -161,10 +167,11 @@ void mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
             dir = normalize(dir);
         }
     }
+    return false;
 }
 
 // This doesn't support nested materials with different etas!
-void mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
+bool mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
                vec3 norm, float eta)
 {
     // If we're entering the shape, then decide whether to reflect
@@ -195,6 +202,7 @@ void mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
             dir = next_dir;
         }
     }
+    return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -203,21 +211,12 @@ void mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
 vec3 bounce(vec3 pos, vec3 dir, inout uint seed) {
     vec3 color = vec3(1);
     for (uint i=0; i < BOUNCES; ++i) {
-        // Walk to the next object in the scene, updating pos and
-        // returning the index of the next shape
-        uint index = trace(pos, dir);
-
-        // If we escaped the world, then terminate immediately
-        if (index == 0) {
-            return vec3(0);
-        }
-
-        // Update color and dir
-        if (mat(seed, color, dir, index, pos)) {
+        // Walk to the next object in the scene, updating the system state
+        // using a set of inout variables
+        if (trace(seed, pos, dir, color)) {
             return color;
         }
     }
-    // If we couldn't reach a light in max bounces, return black
     return vec3(0);
 }
 

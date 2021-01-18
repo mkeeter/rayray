@@ -384,16 +384,24 @@ pub const Scene = struct {
         var changed = false;
         var i: usize = 0;
         const num_mats = self.materials.items.len;
+        const width = c.igGetWindowWidth();
         while (i < self.shapes.items.len) : (i += 1) {
+            c.igPushIDPtr(@ptrCast(*c_void, &self.shapes.items[i]));
             c.igText("Shape %i:", i);
             c.igIndent(c.igGetTreeNodeToLabelSpacing());
-            c.igPushIDPtr(@ptrCast(*c_void, &self.shapes.items[i]));
             changed = (try self.shapes.items[i].draw_gui(num_mats)) or changed;
-            c.igPopID();
             c.igUnindent(c.igGetTreeNodeToLabelSpacing());
+
+            const w = width - c.igGetCursorPosX();
+            c.igIndent(w * 0.25);
+            if (c.igButton("Delete", .{ .x = w * 0.5, .y = 0 })) {
+                std.debug.print("Deleting shape {}\n", .{i});
+            }
+            c.igUnindent(w * 0.25);
             c.igSeparator();
+            c.igPopID();
         }
-        const w = c.igGetWindowWidth() - c.igGetCursorPosX();
+        const w = width - c.igGetCursorPosX();
         c.igIndent(w * 0.25);
         if (c.igButton("Add shape", .{ .x = w * 0.5, .y = 0 })) {
             try self.shapes.append(Shape.new_sphere(.{ .x = 0, .y = 0, .z = 0 }, 1, 0));
@@ -406,14 +414,22 @@ pub const Scene = struct {
     pub fn draw_materials_gui(self: *Self) !bool {
         var changed = false;
         var i: usize = 0;
+        const width = c.igGetWindowWidth();
         while (i < self.materials.items.len) : (i += 1) {
+            c.igPushIDPtr(@ptrCast(*c_void, &self.materials.items[i]));
             c.igText("Material %i:", i);
             c.igIndent(c.igGetTreeNodeToLabelSpacing());
-            c.igPushIDPtr(@ptrCast(*c_void, &self.materials.items[i]));
             changed = (self.materials.items[i].draw_gui()) or changed;
-            c.igPopID();
             c.igUnindent(c.igGetTreeNodeToLabelSpacing());
+
+            const w = width - c.igGetCursorPosX();
+            c.igIndent(w * 0.25);
+            if (c.igButton("Delete", .{ .x = w * 0.5, .y = 0 })) {
+                std.debug.print("Deleting material {}\n", .{i});
+            }
+            c.igUnindent(w * 0.25);
             c.igSeparator();
+            c.igPopID();
         }
 
         const w = c.igGetWindowWidth() - c.igGetCursorPosX();

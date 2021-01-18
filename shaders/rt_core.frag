@@ -238,7 +238,7 @@ void main() {
     const vec3 camera_dy = -cross(camera_dir, camera_dx);
     const mat3 camera_mat = mat3(camera_dx, camera_dy, camera_dir);
 
-    const vec2 camera_scale = vec2(float(u.width_px) / float(u.height_px), 1);
+    const vec2 camera_scale = vec2(float(u.width_px) / float(u.height_px), 1) * u.camera.scale;
 
     for (uint i=0; i < u.samples_per_frame; ++i) {
         // Add anti-aliasing by jittering within the pixel

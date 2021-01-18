@@ -23,7 +23,7 @@ pub const Diffuse = struct {
         return self.color.encode(buf);
     }
     fn draw_gui(self: *Self) bool {
-        return c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
+        return c.igColorEdit3("", @ptrCast([*c]f32, &self.color), 0);
     }
 };
 
@@ -44,8 +44,10 @@ pub const Light = struct {
         });
     }
     fn draw_gui(self: *Self) bool {
-        const a = c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
+        const a = c.igColorEdit3("", @ptrCast([*c]f32, &self.color), 0);
+        c.igPushItemWidth(c.igGetWindowWidth() * 0.4);
         const b = c.igDragFloat("intensity", &self.intensity, 0.05, 1, 10, "%.2f", 0);
+        c.igPopItemWidth();
         return a or b;
     }
 };
@@ -64,8 +66,10 @@ pub const Metal = struct {
         });
     }
     fn draw_gui(self: *Self) bool {
-        const a = c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
+        const a = c.igColorEdit3("", @ptrCast([*c]f32, &self.color), 0);
+        c.igPushItemWidth(c.igGetWindowWidth() * 0.4);
         const b = c.igDragFloat("fuzz", &self.fuzz, 0.01, 0, 10, "%.2f", 0);
+        c.igPopItemWidth();
         return a or b;
     }
 };
@@ -84,8 +88,10 @@ pub const Glass = struct {
         });
     }
     fn draw_gui(self: *Self) bool {
-        const a = c.igColorEdit3("color", @ptrCast([*c]f32, &self.color), 0);
+        const a = c.igColorEdit3("", @ptrCast([*c]f32, &self.color), 0);
+        c.igPushItemWidth(c.igGetWindowWidth() * 0.6);
         const b = c.igDragFloat("eta", &self.eta, 0.01, 1, 2, "%.2f", 0);
+        c.igPopItemWidth();
         return a or b;
     }
 };

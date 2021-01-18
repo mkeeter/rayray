@@ -2,6 +2,7 @@ const std = @import("std");
 
 const c = @import("../c.zig");
 const gui = @import("../gui.zig");
+const widgets = @import("../gui/widgets.zig");
 
 const Primitive = @import("primitive.zig").Primitive;
 const Material = @import("material.zig").Material;
@@ -31,7 +32,6 @@ pub const Shape = struct {
     }
 
     pub fn draw_gui(self: *Self, num_materials: usize) !bool {
-        comptime const widgets = @import("../gui/widgets.zig");
         var changed = false;
         if (widgets.draw_enum_combo(Primitive, self.prim)) |s| {
             changed = true;
@@ -51,11 +51,13 @@ pub const Shape = struct {
             }
         }
         var mat: c_int = @intCast(c_int, self.mat);
-        if (c.igDragInt("material", &mat, 0.1, 0, @intCast(c_int, num_materials - 1), "%i", 0)) {
+        c.igPushItemWidth(c.igGetWindowWidth() * 0.6);
+        if (c.igDragInt("mat", &mat, 0.1, 0, @intCast(c_int, num_materials - 1), "%i", 0)) {
             self.mat = @intCast(u32, mat);
             changed = true;
         }
         changed = self.prim.draw_gui() or changed;
+        c.igPopItemWidth();
         return changed;
     }
 

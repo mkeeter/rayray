@@ -103,20 +103,17 @@ pub const Renderer = struct {
     }
 
     fn draw_camera_gui(self: *Self) bool {
-        const ui_changed = [_]bool{
-            c.igDragFloat3("pos", @ptrCast([*c]f32, &self.uniforms.camera.pos), 0.05, -10, 10, "%.1f", 0),
-            c.igDragFloat3("target", @ptrCast([*c]f32, &self.uniforms.camera.target), 0.05, -10, 10, "%.1f", 0),
-            c.igDragFloat3("up", @ptrCast([*c]f32, &self.uniforms.camera.up), 0.1, -1, 1, "%.1f", 0),
-            c.igDragFloat("perspective", &self.uniforms.camera.perspective, 0.01, 0, 1, "%.2f", 0),
-            c.igDragFloat("defocus", &self.uniforms.camera.defocus, 0.001, 0, 0.2, "%.2f", 0),
-            c.igDragFloat("focal length", &self.uniforms.camera.focal_distance, 0.01, 0, 10, "%.2f", 0),
-            c.igDragFloat("scale", &self.uniforms.camera.scale, 0.05, 0, 2, "%.1f", 0),
-        };
         var changed = false;
-        for (ui_changed) |b| {
-            changed = b or changed;
-        }
-        const w = c.igGetWindowWidth() - c.igGetCursorPosX();
+        const width = c.igGetWindowWidth();
+        c.igPushItemWidth(width * 0.5);
+        changed = c.igDragFloat3("pos", @ptrCast([*c]f32, &self.uniforms.camera.pos), 0.05, -10, 10, "%.1f", 0) or changed;
+        changed = c.igDragFloat3("target", @ptrCast([*c]f32, &self.uniforms.camera.target), 0.05, -10, 10, "%.1f", 0) or changed;
+        changed = c.igDragFloat3("up", @ptrCast([*c]f32, &self.uniforms.camera.up), 0.1, -1, 1, "%.1f", 0) or changed;
+        changed = c.igDragFloat("perspective", &self.uniforms.camera.perspective, 0.01, 0, 1, "%.2f", 0) or changed;
+        changed = c.igDragFloat("defocus", &self.uniforms.camera.defocus, 0.0001, 0, 0.1, "%.4f", 0) or changed;
+        changed = c.igDragFloat("focal length", &self.uniforms.camera.focal_distance, 0.01, 0, 10, "%.2f", 0) or changed;
+        changed = c.igDragFloat("scale", &self.uniforms.camera.scale, 0.05, 0, 10, "%.1f", 0) or changed;
+        const w = width - c.igGetCursorPosX();
         c.igIndent(w * 0.25);
         if (c.igButton("Reset", .{ .x = w * 0.5, .y = 0 })) {
             self.uniforms.camera = self.scene.camera;

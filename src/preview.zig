@@ -5,7 +5,11 @@ const shaderc = @import("shaderc.zig");
 
 const Scene = @import("scene.zig").Scene;
 
-pub const Raytrace = struct {
+// This struct runs a raytracing kernel which uses an encoded scene and
+// tape to evaluate generic scenes.  This is slower than compiling a
+// scene-specific kernel, but is much more efficient to update (because
+// you only need to modify the scene storage buffer).
+pub const Preview = struct {
     const Self = @This();
 
     alloc: *std.mem.Allocator,
@@ -47,7 +51,7 @@ pub const Raytrace = struct {
             },
         );
         defer c.wgpu_shader_module_destroy(vert_shader);
-        const frag_spv = try shaderc.build_shader_from_file(tmp_alloc, "shaders/raytrace.frag");
+        const frag_spv = try shaderc.build_shader_from_file(tmp_alloc, "shaders/prview.frag");
         const frag_shader = c.wgpu_device_create_shader_module(
             device,
             (c.WGPUShaderSource){

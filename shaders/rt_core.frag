@@ -1,23 +1,23 @@
-#version 440
-#pragma shader_stage(fragment)
 #include "extern/rayray.h"
 
-layout(location=0) out vec4 fragColor;
+// This is the core of raytracing, specialized by defining trace() and mat()
+// It is used by both the preview kernel (which uses an scene encoded in
+// a storage buffer) and the optimized kernel (which compiles the scene
+// representation into GLSL).
 
 layout(set=0, binding=0, std430) uniform Uniforms {
     rayUniforms u;
 };
-layout(set=0, binding=1) buffer Scene {
-    vec4[] scene_data;
-};
+layout(location=0) out vec4 fragColor;
 
 #define SURFACE_EPSILON 1e-6
 #define NORMAL_EPSILON  1e-8
 
-struct hit_t {
-    vec3 pos;
-    uint index;
-};
+////////////////////////////////////////////////////////////////////////////////
+// Forward declarations
+bool mat(inout uint seed, inout vec3 color, inout vec3 dir,
+         uint index, vec3 pos);
+uint trace(inout vec3 start, vec3 dir);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Jenkins hash function, specialized for a uint key
@@ -90,6 +90,17 @@ vec2 rand2_in_circle(inout uint seed) {
     }
 }
 
+// Normalize, snapping to the normal if the vector is pathologically short
+vec3 sanitize_dir(vec3 dir, vec3 norm) {
+    float len = dot(dir, dir);
+    if (len >= NORMAL_EPSILON) {
+        return dir / sqrt(len);
+    } else {
+        return norm;
+    }
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 float hit_plane(vec3 start, vec3 dir, vec3 norm, float off) {
     // dot(norm, pos) == off
@@ -120,148 +131,90 @@ float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     }
 }
 
-vec3 norm(vec3 pos, uvec4 shape) {
-    uint offset = shape.y;
-    switch (shape.x) {
-        case SHAPE_SPHERE: {
-            vec4 d = scene_data[offset];
-            return normalize(pos - d.xyz);
+vec3 norm_plane(vec3 pos, vec3 norm) {
+    return norm;
+}
+
+vec3 norm_sphere(vec3 pos, vec3 center) {
+    return normalize(pos - center);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void mat_diffuse(inout uint seed, inout vec3 color, inout vec3 dir,
+                 vec3 norm, vec3 diffuse_color)
+{
+    color *= diffuse_color;
+    dir = sanitize_dir(norm + rand3_on_sphere(seed), norm);
+}
+
+void mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
+                 vec3 norm, vec3 metal_color, float fuzz)
+{
+    color *= metal_color;
+    dir -= norm * dot(norm, dir)*2;
+    if (fuzz != 0) {
+        dir += rand3_on_sphere(seed) * fuzz;
+        if (fuzz >= 0.99) {
+            dir = sanitize_dir(dir, norm);
+        } else {
+            dir = normalize(dir);
         }
-        case SHAPE_INFINITE_PLANE: // fallthrough
-        case SHAPE_FINITE_PLANE: {
-            vec4 d = scene_data[offset];
-            return d.xyz;
+    }
+}
+
+// This doesn't support nested materials with different etas!
+void mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
+               vec3 norm, float eta)
+{
+    // If we're entering the shape, then decide whether to reflect
+    // or refract based on the incoming angle
+    if (dot(dir, norm) < 0) {
+        eta = 1/eta;
+
+        // Use Schlick's approximation for reflectance.
+        float cosine = min(dot(-dir, norm), 1.0);
+        float r0 = (1 - eta) / (1 + eta);
+        r0 = r0*r0;
+        float reflectance = r0 + (1 - r0) * pow((1 - cosine), 5);
+
+        // reflectance is [0-1], so bias rand() to match
+        if (reflectance > (rand(seed) + 1)*0.5) {
+            dir -= norm * dot(norm, dir)*2;
+        } else {
+            dir = refract(dir, norm, eta);
         }
-        default: // unimplemented
-            return vec3(0);
+    } else {
+        // Otherwise, we're exiting the shape and need to check
+        // for total internal reflection
+        vec3 next_dir = refract(dir, -norm, eta);
+        // If we can't refract, then reflect instead
+        if (next_dir == vec3(0)) {
+            dir -= norm * dot(norm, dir)*2;
+        } else {
+            dir = next_dir;
+        }
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// The lowest-level building block:
-//  Raytraces to the next object in the scene,
-//  returning a hit_t object of [pos, index]
-hit_t trace(vec3 start, vec3 dir) {
-    float best_dist = 1e8;
-    uint best_hit = 0;
-    const uint num_shapes = floatBitsToUint(scene_data[0].x);
-
-    for (uint i=1; i <= num_shapes; i += 1) {
-        uvec4 shape = floatBitsToUint(scene_data[i]);
-        uint offset = shape.y;
-        float dist;
-        switch (shape.x) {
-            case SHAPE_SPHERE: {
-                vec4 d = scene_data[offset];
-                dist = hit_sphere(start, dir, d.xyz, d.w);
-                break;
-            }
-            case SHAPE_INFINITE_PLANE: {
-                vec4 d = scene_data[offset];
-                dist = hit_plane(start, dir, d.xyz, d.w);
-                break;
-            }
-            default: // unimplemented shape
-                continue;
-        }
-        if (dist > SURFACE_EPSILON && dist < best_dist) {
-            best_dist = dist;
-            best_hit = i;
-        }
-    }
-    hit_t t = {vec3(0), best_hit};
-    if (best_hit != 0) {
-        t.pos = start + dir*best_dist;
-    }
-    return t;
-}
-
-// Normalize, snapping to the normal if the vector is pathologically short
-vec3 sanitize_dir(vec3 dir, vec3 norm) {
-    float len = dot(dir, dir);
-    if (len >= NORMAL_EPSILON) {
-        return dir / sqrt(len);
-    } else {
-        return norm;
-    }
-}
 
 #define BOUNCES 6
 vec3 bounce(vec3 pos, vec3 dir, inout uint seed) {
     vec3 color = vec3(1);
-    hit_t hit = {pos, 0};
     for (uint i=0; i < BOUNCES; ++i) {
-        // Walk to the next object in the scene
-        hit = trace(hit.pos, dir);
+        // Walk to the next object in the scene, updating pos and
+        // returning the index of the next shape
+        uint index = trace(pos, dir);
 
         // If we escaped the world, then terminate immediately
-        if (hit.index == 0) {
+        if (index == 0) {
             return vec3(0);
         }
 
-        // Extract the shape so we can pull the material
-        uvec4 shape = floatBitsToUint(scene_data[hit.index]);
-        vec3 norm = norm(hit.pos, shape);
-
-        // Look at the material and decide whether to terminate
-        uint mat_offset = shape.z;
-        uint mat_type = shape.w;
-
-        switch (mat_type) {
-            // When we hit a light, return immediately
-            case MAT_LIGHT:
-                return color * scene_data[mat_offset].xyz;
-
-            // Otherwise, handle the various material types
-            case MAT_DIFFUSE:
-                color *= scene_data[mat_offset].xyz;
-                dir = sanitize_dir(norm + rand3_on_sphere(seed), norm);
-                break;
-            case MAT_METAL:
-                color *= scene_data[mat_offset].xyz;
-                dir -= norm * dot(norm, dir)*2;
-                float fuzz = scene_data[mat_offset].w;
-                if (fuzz != 0) {
-                    dir += rand3_on_sphere(seed) * fuzz;
-                    if (fuzz >= 0.99) {
-                        dir = sanitize_dir(dir, norm);
-                    } else {
-                        dir = normalize(dir);
-                    }
-                }
-                break;
-            case MAT_GLASS:
-                // This doesn't support nested materials with different etas!
-                float eta = scene_data[mat_offset].w;
-                // If we're entering the shape, then decide whether to reflect
-                // or refract based on the incoming angle
-                if (dot(dir, norm) < 0) {
-                    eta = 1/eta;
-
-                    // Use Schlick's approximation for reflectance.
-                    float cosine = min(dot(-dir, norm), 1.0);
-                    float r0 = (1 - eta) / (1 + eta);
-                    r0 = r0*r0;
-                    float reflectance = r0 + (1 - r0) * pow((1 - cosine), 5);
-
-                    // reflectance is [0-1], so bias rand() to match
-                    if (reflectance > (rand(seed) + 1)*0.5) {
-                        dir -= norm * dot(norm, dir)*2;
-                    } else {
-                        dir = refract(dir, norm, eta);
-                    }
-                } else {
-                    // Otherwise, we're exiting the shape and need to check
-                    // for total internal reflection
-                    vec3 next_dir = refract(dir, -norm, eta);
-                    // If we can't refract, then reflect instead
-                    if (next_dir == vec3(0)) {
-                        dir -= norm * dot(norm, dir)*2;
-                    } else {
-                        dir = next_dir;
-                    }
-                }
-                break;
+        // Update color and dir
+        if (mat(seed, color, dir, index, pos)) {
+            return color;
         }
     }
     // If we couldn't reach a light in max bounces, return black

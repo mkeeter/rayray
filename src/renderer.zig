@@ -4,7 +4,7 @@ const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
 
 const Blit = @import("blit.zig").Blit;
-const Raytrace = @import("raytrace.zig").Raytrace;
+const Preview = @import("preview.zig").Preview;
 const Scene = @import("scene.zig").Scene;
 const Options = @import("options.zig").Options;
 const Viewport = @import("viewport.zig").Viewport;
@@ -23,7 +23,7 @@ pub const Renderer = struct {
     tex: c.WGPUTextureId,
     tex_view: c.WGPUTextureViewId,
 
-    raytrace: Raytrace,
+    preview: Preview,
     blit: Blit,
 
     uniforms: c.rayUniforms,
@@ -54,7 +54,7 @@ pub const Renderer = struct {
             .device = device,
             .queue = c.wgpu_device_get_default_queue(device),
 
-            .raytrace = try Raytrace.init(alloc, scene, device, uniform_buf),
+            .preview = try Preview.init(alloc, scene, device, uniform_buf),
             .blit = undefined, // Built after resize()
             .scene = scene,
 
@@ -162,7 +162,7 @@ pub const Renderer = struct {
         c.igPopStyleVar(2);
 
         if (changed) {
-            try self.raytrace.upload_scene(self.scene);
+            try self.preview.upload_scene(self.scene);
             self.uniforms.samples = 0;
         }
     }
@@ -187,7 +187,7 @@ pub const Renderer = struct {
         }
 
         // Cast another set of rays, one per pixel
-        try self.raytrace.draw(self.uniforms.samples == 0, self.tex_view, cmd_encoder);
+        try self.preview.draw(self.uniforms.samples == 0, self.tex_view, cmd_encoder);
         self.uniforms.samples += self.uniforms.samples_per_frame;
         self.frame += 1;
 
@@ -234,7 +234,7 @@ pub const Renderer = struct {
 
     pub fn deinit(self: *Self) void {
         self.blit.deinit();
-        self.raytrace.deinit();
+        self.preview.deinit();
         self.scene.deinit();
         self.destroy_textures();
         c.wgpu_buffer_destroy(self.uniform_buf);

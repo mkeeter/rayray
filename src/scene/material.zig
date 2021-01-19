@@ -26,14 +26,6 @@ pub const Diffuse = struct {
     fn draw_gui(self: *Self) bool {
         return c.igColorEdit3("", @ptrCast([*c]f32, &self.color), 0);
     }
-
-    fn mat_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return std.fmt.allocPrint(
-            alloc,
-            "mat_diffuse(seed, color, dir, norm, vec3({}, {}, {}))",
-            .{ self.color.r, self.color.g, self.color.b },
-        );
-    }
 };
 
 pub const Light = struct {
@@ -60,18 +52,6 @@ pub const Light = struct {
         c.igPopItemWidth();
         return a or b;
     }
-
-    fn mat_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return std.fmt.allocPrint(
-            alloc,
-            "mat_light(color, vec3({}, {}, {}))",
-            .{
-                self.color.r * self.intensity,
-                self.color.g * self.intensity,
-                self.color.b * self.intensity,
-            },
-        );
-    }
 };
 
 pub const Metal = struct {
@@ -94,14 +74,6 @@ pub const Metal = struct {
         c.igPopItemWidth();
         return a or b;
     }
-
-    fn mat_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return std.fmt.allocPrint(
-            alloc,
-            "mat_metal(seed, color, dir, norm, vec3({}, {}, {}), {})",
-            .{ self.color.r, self.color.g, self.color.b, self.fuzz },
-        );
-    }
 };
 
 pub const Glass = struct {
@@ -123,14 +95,6 @@ pub const Glass = struct {
         const b = c.igDragFloat("eta", &self.eta, 0.01, 1, 2, "%.2f", 0);
         c.igPopItemWidth();
         return a or b;
-    }
-
-    fn mat_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return std.fmt.allocPrint(
-            alloc,
-            "mat_glass(seed, color, dir, norm, {})",
-            .{self.eta},
-        );
     }
 };
 
@@ -239,14 +203,5 @@ pub const Material = union(enum) {
         } or changed;
 
         return changed;
-    }
-
-    pub fn mat_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return try switch (self.*) {
-            .Diffuse => |*d| d.mat_glsl(alloc),
-            .Light => |*d| d.mat_glsl(alloc),
-            .Metal => |*d| d.mat_glsl(alloc),
-            .Glass => |*d| d.mat_glsl(alloc),
-        };
     }
 };

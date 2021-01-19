@@ -15,8 +15,6 @@ layout(location=0) out vec4 fragColor;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Forward declarations
-bool mat(inout uint seed, inout vec3 color, inout vec3 dir,
-         uint index, vec3 pos);
 bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color);
 
 ////////////////////////////////////////////////////////////////////////////////

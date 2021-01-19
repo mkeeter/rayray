@@ -25,16 +25,8 @@ pub const Sphere = struct {
     pub fn norm_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
         return std.fmt.allocPrint(
             alloc,
-            "normalize(pos - vec3({}, {}, {}))",
+            "center = vec3({}, {}, {})",
             .{ self.center.x, self.center.y, self.center.z },
-        );
-    }
-
-    pub fn hit_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return std.fmt.allocPrint(
-            alloc,
-            "hit_sphere(pos, dir, vec3({}, {}, {}), {})",
-            .{ self.center.x, self.center.y, self.center.z, self.radius },
         );
     }
 };
@@ -63,16 +55,8 @@ pub const InfinitePlane = struct {
     pub fn norm_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
         return std.fmt.allocPrint(
             alloc,
-            "vec3({}, {}, {})",
+            "norm = vec3({}, {}, {})",
             .{ self.normal.x, self.normal.y, self.normal.z },
-        );
-    }
-
-    pub fn hit_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return std.fmt.allocPrint(
-            alloc,
-            "hit_plane(pos, dir,  vec3({}, {}, {}), {})",
-            .{ self.normal.x, self.normal.y, self.normal.z, self.offset },
         );
     }
 };
@@ -126,13 +110,6 @@ pub const Primitive = union(enum) {
         return try switch (self.*) {
             .Sphere => |d| d.norm_glsl(alloc),
             .InfinitePlane => |d| d.norm_glsl(alloc),
-        };
-    }
-
-    pub fn hit_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return try switch (self.*) {
-            .Sphere => |d| d.hit_glsl(alloc),
-            .InfinitePlane => |d| d.hit_glsl(alloc),
         };
     }
 };

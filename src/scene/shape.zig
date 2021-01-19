@@ -64,8 +64,4 @@ pub const Shape = struct {
     pub fn norm_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
         return self.prim.norm_glsl(alloc);
     }
-
-    pub fn hit_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return self.prim.hit_glsl(alloc);
-    }
 };

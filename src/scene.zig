@@ -310,9 +310,6 @@ pub const Scene = struct {
     }
 
     pub fn encode(self: *const Self) ![]c.vec4 {
-        const norm_g = try self.norm_glsl();
-        defer self.alloc.free(norm_g);
-        std.debug.print("norm:\n{s}\n", .{norm_g});
         const trace_g = try self.trace_glsl();
         defer self.alloc.free(trace_g);
         std.debug.print("trace:\n{s}\n", .{trace_g});
@@ -448,15 +445,31 @@ pub const Scene = struct {
         defer arena.deinit();
 
         var out = try std.fmt.allocPrint(tmp_alloc,
-            \\uint trace(inout vec3 start, vec3 dir) {{
+            \\#version 440
+            \\#pragma shader_stage(fragment)
+            \\#include "shaders/rt_core.frag"
+            \\
+            \\bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color)
+            \\{{
             \\    float best_dist = 1e8;
-            \\    vec3 norm = vec3(0);
             \\    uint best_hit = 0;
             \\    float dist;
         , .{});
         var i: usize = 1;
         for (self.shapes.items) |shape| {
-            const line = try shape.hit_glsl(tmp_alloc);
+            const dist = switch (shape.prim) {
+                .Sphere => |s| std.fmt.allocPrint(
+                    tmp_alloc,
+                    "hit_sphere(pos, dir, vec3({}, {}, {}), {})",
+                    .{ s.center.x, s.center.y, s.center.z, s.radius },
+                ),
+                .InfinitePlane => |s| std.fmt.allocPrint(
+                    tmp_alloc,
+                    "hit_plane(pos, dir,  vec3({}, {}, {}), {})",
+                    .{ s.normal.x, s.normal.y, s.normal.z, s.offset },
+                ),
+            };
+
             out = try std.fmt.allocPrint(
                 tmp_alloc,
                 \\{s}
@@ -466,60 +479,169 @@ pub const Scene = struct {
                 \\        best_hit = {};
                 \\    }}
             ,
-                .{ out, try shape.hit_glsl(tmp_alloc), i },
+                .{ out, dist, i },
             );
             i += 1;
         }
 
         // Close up the function, and switch to the non-temporary allocator
-        out = try std.fmt.allocPrint(self.alloc,
+        out = try std.fmt.allocPrint(tmp_alloc,
             \\{s}
-            \\    if (best_hit != 0) {{
-            \\        start += dir*best_dist;
+            \\
+            \\    // If we missed all objects, terminate immediately with blackness
+            \\    if (best_hit == 0) {{
+            \\        color = vec3(0);
+            \\        return true;
             \\    }}
-            \\    return best_hit;
-            \\}}
+            \\    pos = pos + dir*best_dist;
+            \\
+            \\    const uvec4 key_arr[] = {{
+            \\        uvec4(0), // Dummy
         , .{out});
-        return out;
-    }
 
-    pub fn mat_glsl(self: *const Self) ![]const u8 {
-        var arena = std.heap.ArenaAllocator.init(self.alloc);
-        const tmp_alloc: *std.mem.Allocator = &arena.allocator;
-        defer arena.deinit();
+        var mat_count: [c.LAST_MAT]usize = undefined;
+        std.mem.set(usize, mat_count[0..], 1);
 
-        var out = try std.fmt.allocPrint(tmp_alloc,
-            \\bool mat(inout uint seed, inout vec3 color, inout vec3 dir,
-            \\         uint index, vec3 pos)
-            \\{{
-            \\    switch (index) {{
-        , .{});
+        var mat_index = try tmp_alloc.alloc(usize, self.materials.items.len);
+        i = 0;
+        for (self.materials.items) |mat| {
+            const mat_tag: u32 = mat.tag();
+            const m = mat_count[mat_tag];
+            mat_count[mat_tag] += 1;
+            mat_index[i] = m;
+            i += 1;
+        }
 
-        var i: usize = 1;
+        // Each shape needs to know its material (unless it is LIGHT)
+        // We dispatch first on shape tag (SPHERE / PLANE / etc), then on
+        // sub-index (0-n_shape for each shape type)
+        var shape_count: [c.LAST_SHAPE]usize = undefined;
+        std.mem.set(usize, shape_count[0..], 1);
+
         for (self.shapes.items) |shape| {
-            const norm = try shape.norm_glsl(tmp_alloc);
-            const mat = try self.materials.items[shape.mat].mat_glsl(tmp_alloc);
+            const shape_tag: u32 = shape.prim.tag();
+            const n = shape_count[shape_tag];
+            shape_count[shape_tag] += 1;
+
+            const mat_tag: u32 = self.materials.items[shape.mat].tag();
+            const m = mat_index[shape.mat];
             out = try std.fmt.allocPrint(
                 tmp_alloc,
-                \\{s}
-                \\        case {}: {{
-                \\            vec3 norm = {s};
-                \\            return {s};
-                \\        }}
-            ,
-                .{ out, i, norm, mat },
+                "{s}\n        uvec4({}, {}, {}, {}),",
+                .{ out, shape_tag, n, mat_tag, m },
             );
-            i += 1;
+        }
+        out = try std.fmt.allocPrint(tmp_alloc,
+            \\{s}
+            \\    }};
+            \\    uvec4 key = key_arr[best_hit];
+            \\
+        , .{out});
+
+        var sphere_data: []u8 = "";
+        var plane_data: []u8 = "";
+
+        var diffuse_data: []u8 = "";
+        var light_data: []u8 = "";
+        var metal_data: []u8 = "";
+        var glass_data: []u8 = "";
+
+        for (self.shapes.items) |shape| {
+            switch (shape.prim) {
+                .Sphere => |s| sphere_data = try std.fmt.allocPrint(tmp_alloc,
+                    \\{s}
+                    \\                vec3({}, {}, {}),
+                , .{ sphere_data, s.center.x, s.center.y, s.center.z }),
+                .InfinitePlane => |s| plane_data = try std.fmt.allocPrint(tmp_alloc,
+                    \\{s}
+                    \\                vec3({}, {}, {}),
+                , .{ plane_data, s.normal.x, s.normal.y, s.normal.z }),
+            }
         }
 
-        // Close up the function, and switch to the non-temporary allocator
-        out = try std.fmt.allocPrint(self.alloc,
+        for (self.materials.items) |mat| {
+            switch (mat) {
+                .Diffuse => |s| diffuse_data = try std.fmt.allocPrint(tmp_alloc,
+                    \\{s}
+                    \\                vec3({}, {}, {}),
+                , .{ diffuse_data, s.color.r, s.color.g, s.color.b }),
+                .Light => |s| light_data = try std.fmt.allocPrint(tmp_alloc,
+                    \\{s}
+                    \\                vec3({}, {}, {}),
+                , .{ light_data, s.color.r * s.intensity, s.color.g * s.intensity, s.color.b * s.intensity }),
+                .Metal => |s| metal_data = try std.fmt.allocPrint(tmp_alloc,
+                    \\{s}
+                    \\                vec4({}, {}, {}, {}),
+                , .{ metal_data, s.color.r, s.color.g, s.color.b, s.fuzz }),
+                .Glass => |s| glass_data = try std.fmt.allocPrint(tmp_alloc,
+                    \\{s}
+                    \\                vec4({}, {}, {}, {}),
+                , .{ glass_data, s.color.r, s.color.g, s.color.b, s.eta }),
+            }
+        }
+
+        out = try std.fmt.allocPrint(tmp_alloc,
             \\{s}
-            \\        default: break;
+            \\    // Calculate normal based on shape type and sub-index
+            \\    vec3 norm = vec3(0);
+            \\    switch (key.x) {{
+            \\        case SHAPE_SPHERE: {{
+            \\            // Sphere centers
+            \\            const vec3 data[] = {{
+            \\                vec3(0), // Dummy{s}
+            \\            }};
+            \\            norm = norm_sphere(pos, data[key.y]);
+            \\            break;
+            \\        }}
+            \\        case SHAPE_INFINITE_PLANE: {{
+            \\            // Plane normals
+            \\            const vec3 data[] = {{
+            \\                vec3(0), // Dummy{s}
+            \\            }};
+            \\            norm = norm_plane(data[key.y]);
+            \\            break;
+            \\        }}
             \\    }}
-            \\    return false;
+            \\
+            \\    // Calculate material behavior based on mat type and sub-index
+            \\    switch (key.z) {{
+            \\        case MAT_DIFFUSE: {{
+            \\            const vec3 data[] = {{
+            \\                vec3(0), // Dummy{s}
+            \\            }};
+            \\            return mat_diffuse(seed, color, dir, norm, data[key.w]);
+            \\        }}
+            \\        case MAT_LIGHT: {{
+            \\            const vec3 data[] = {{
+            \\                vec3(0), // Dummy{s}
+            \\            }};
+            \\            return mat_light(color, data[key.w]);
+            \\        }}
+            \\        case MAT_METAL: {{
+            \\            // R, G, B, fuzz
+            \\            const vec4 data[] = {{
+            \\                vec4(0), // Dummy{s}
+            \\            }};
+            \\            vec4 m = data[key.w];
+            \\            return mat_metal(seed, color, dir, norm, m.xyz, m.w);
+            \\        }}
+            \\        case MAT_GLASS: {{
+            \\            // R, G, B, eta
+            \\            const vec4 data[] = {{
+            \\                vec4(0), // Dummy{s}
+            \\            }};
+            \\            vec4 m = data[key.w];
+            \\            return mat_glass(seed, color, dir, norm, m.w);
+            \\        }}
+            \\    }}
+            \\
+            \\    // Reaching here is an error, so set the color to green and terminate
+            \\    color = vec3(0, 1, 0);
+            \\    return true;
             \\}}
-        , .{out});
-        return out;
+        , .{ out, sphere_data, plane_data, diffuse_data, light_data, metal_data, glass_data });
+
+        // Dupe to the standard allocator, so it won't be freed
+        return self.alloc.dupe(u8, out);
     }
 };

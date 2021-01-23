@@ -138,9 +138,15 @@ pub const Window = struct {
 
     fn draw(self: *Self) !void {
         if (self.debounce.check()) {
-            var s = try self.renderer.scene.clone();
-            std.debug.print("Got debounced scene {}\n", .{s});
-            s.deinit();
+            // Try to kick off an async build of a scene-specific shader.
+            //
+            // If this fails (because we've already got shaderc running),
+            // then poke the debounce system to retrigger.
+            var scene = try self.renderer.scene.clone();
+            if (!try self.renderer.build_opt(scene)) {
+                try self.debounce.update(10);
+                scene.deinit();
+            }
         }
         const next_texture_view = c.wgpu_swap_chain_get_current_texture_view(self.swap_chain);
         if (next_texture_view == 0) {

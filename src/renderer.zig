@@ -3,6 +3,7 @@ const std = @import("std");
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
 
+const AsyncShaderc = @import("async_shaderc.zig").AsyncShaderc;
 const Blit = @import("blit.zig").Blit;
 const Preview = @import("preview.zig").Preview;
 const Scene = @import("scene.zig").Scene;
@@ -23,6 +24,7 @@ pub const Renderer = struct {
     tex: c.WGPUTextureId,
     tex_view: c.WGPUTextureViewId,
 
+    compiler: ?AsyncShaderc,
     preview: Preview,
     blit: Blit,
 
@@ -54,6 +56,7 @@ pub const Renderer = struct {
             .device = device,
             .queue = c.wgpu_device_get_default_queue(device),
 
+            .compiler = null,
             .preview = try Preview.init(alloc, scene, device, uniform_buf),
             .blit = undefined, // Built after resize()
             .scene = scene,
@@ -82,6 +85,18 @@ pub const Renderer = struct {
         out.initialized = true;
 
         return out;
+    }
+
+    pub fn build_opt(self: *Self, scene: Scene) !bool {
+        // The compiler is already running, so don't do anything yet
+        if (self.compiler != null) {
+            return false;
+        }
+
+        self.compiler = AsyncShaderc.init(scene);
+        try (self.compiler orelse unreachable).start();
+
+        return true;
     }
 
     pub fn get_options(self: *const Self) Options {
@@ -171,6 +186,16 @@ pub const Renderer = struct {
         next_texture: c.WGPUOption_TextureViewId,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) !void {
+        // Check whether the compiler for a scene-specific shader has finished
+        if (self.compiler) |*comp| {
+            if (comp.check()) |out| {
+                std.debug.print("Got spirv {}\n", .{out});
+                comp.alloc.free(out);
+                comp.deinit();
+                self.compiler = null;
+            }
+        }
+
         const width = @floatToInt(u32, viewport.width);
         const height = @floatToInt(u32, viewport.height);
         if (width != self.uniforms.width_px or height != self.uniforms.height_px) {

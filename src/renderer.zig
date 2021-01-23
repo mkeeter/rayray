@@ -50,7 +50,7 @@ pub const Renderer = struct {
             },
         );
 
-        var out = Renderer{
+        var out = Self{
             .device = device,
             .queue = c.wgpu_device_get_default_queue(device),
 

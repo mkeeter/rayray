@@ -16,6 +16,7 @@ pub const Scene = struct {
     fn new(alloc: *std.mem.Allocator, camera: c.rayCamera) Self {
         return Scene{
             .alloc = alloc,
+
             .shapes = std.ArrayList(Shape).init(alloc),
             .materials = std.ArrayList(Material).init(alloc),
             .camera = camera,

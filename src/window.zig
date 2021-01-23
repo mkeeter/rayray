@@ -193,6 +193,9 @@ pub const Window = struct {
 
             c.igEndMainMenuBar();
         }
+
+        // If the scene is changed through the editor, then poke the debounce
+        // timer to build the optimized shader once things stop changing
         if (self.show_editor) {
             if (try self.renderer.draw_gui(menu_height, &menu_width)) {
                 try self.debounce.update(100);

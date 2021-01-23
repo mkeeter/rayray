@@ -37,7 +37,7 @@ pub const Gui = struct {
 
     pub fn draw(
         self: *Self,
-        next_texture: c.WGPUSwapChainOutput,
+        next_texture: c.WGPUOption_TextureViewId,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) void {
         c.igRender();

@@ -42,21 +42,27 @@ pub const Preview = struct {
         const queue = c.wgpu_device_get_default_queue(device);
 
         // Build the shaders using shaderc
-        const vert_spv = try shaderc.build_shader_from_file(tmp_alloc, "shaders/raytrace.vert");
+        const rt_vert_name = "shaders/raytrace.vert";
+        const vert_spv = try shaderc.build_shader_from_file(tmp_alloc, rt_vert_name);
         const vert_shader = c.wgpu_device_create_shader_module(
             device,
-            (c.WGPUShaderSource){
+            &(c.WGPUShaderModuleDescriptor){
+                .label = rt_vert_name,
                 .bytes = vert_spv.ptr,
                 .length = vert_spv.len,
+                .flags = c.WGPUShaderFlags_VALIDATION,
             },
         );
         defer c.wgpu_shader_module_destroy(vert_shader);
-        const frag_spv = try shaderc.build_shader_from_file(tmp_alloc, "shaders/preview.frag");
+        const rt_preview_name = "shaders/preview.frag";
+        const frag_spv = try shaderc.build_shader_from_file(tmp_alloc, rt_preview_name);
         const frag_shader = c.wgpu_device_create_shader_module(
             device,
-            (c.WGPUShaderSource){
+            &(c.WGPUShaderModuleDescriptor){
+                .label = rt_preview_name,
                 .bytes = frag_spv.ptr,
                 .length = frag_spv.len,
+                .flags = c.WGPUShaderFlags_VALIDATION,
             },
         );
         defer c.wgpu_shader_module_destroy(frag_shader);
@@ -73,6 +79,7 @@ pub const Preview = struct {
                 .min_buffer_binding_size = 0,
 
                 .multisampled = undefined,
+                .filtering = undefined,
                 .view_dimension = undefined,
                 .texture_component_type = undefined,
                 .storage_texture_format = undefined,
@@ -87,6 +94,7 @@ pub const Preview = struct {
                 .min_buffer_binding_size = 0,
 
                 .multisampled = undefined,
+                .filtering = undefined,
                 .view_dimension = undefined,
                 .texture_component_type = undefined,
                 .storage_texture_format = undefined,
@@ -108,6 +116,7 @@ pub const Preview = struct {
         const pipeline_layout = c.wgpu_device_create_pipeline_layout(
             device,
             &(c.WGPUPipelineLayoutDescriptor){
+                .label = "",
                 .bind_group_layouts = &bind_group_layouts,
                 .bind_group_layouts_length = bind_group_layouts.len,
             },
@@ -117,6 +126,7 @@ pub const Preview = struct {
         const render_pipeline = c.wgpu_device_create_render_pipeline(
             device,
             &(c.WGPURenderPipelineDescriptor){
+                .label = "preview pipeline",
                 .layout = pipeline_layout,
                 .vertex_stage = (c.WGPUProgrammableStageDescriptor){
                     .module = vert_shader,
@@ -129,6 +139,8 @@ pub const Preview = struct {
                 .rasterization_state = &(c.WGPURasterizationStateDescriptor){
                     .front_face = c.WGPUFrontFace._Ccw,
                     .cull_mode = c.WGPUCullMode._None,
+                    .polygon_mode = c.WGPUPolygonMode._Fill,
+                    .clamp_depth = false,
                     .depth_bias = 0,
                     .depth_bias_slope_scale = 0.0,
                     .depth_bias_clamp = 0.0,
@@ -151,13 +163,13 @@ pub const Preview = struct {
                 .color_states_length = 1,
                 .depth_stencil_state = null,
                 .vertex_state = (c.WGPUVertexStateDescriptor){
-                    .index_format = c.WGPUIndexFormat._Uint16,
+                    .index_format = c.WGPUIndexFormat_Undefined,
                     .vertex_buffers = null,
                     .vertex_buffers_length = 0,
                 },
                 .sample_count = 1,
                 .sample_mask = 0,
-                .alpha_to_coverage_enabled = false,
+                .alpha_to_coverage = false,
             },
         );
 
@@ -184,7 +196,7 @@ pub const Preview = struct {
     pub fn deinit(self: *Self) void {
         c.wgpu_bind_group_destroy(self.bind_group);
         c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
-        c.wgpu_buffer_destroy(self.scene_buffer);
+        c.wgpu_buffer_destroy(self.scene_buffer, true);
 
         c.wgpu_render_pipeline_destroy(self.render_pipeline);
     }
@@ -199,7 +211,7 @@ pub const Preview = struct {
 
         if (scene_buffer_len > self.scene_buffer_len) {
             if (self.initialized) {
-                c.wgpu_buffer_destroy(self.scene_buffer);
+                c.wgpu_buffer_destroy(self.scene_buffer, true);
                 c.wgpu_bind_group_destroy(self.bind_group);
             }
             self.scene_buffer = c.wgpu_device_create_buffer(
@@ -259,8 +271,8 @@ pub const Preview = struct {
             c.WGPULoadOp._Clear
         else
             c.WGPULoadOp._Load;
-        const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
-            (c.WGPURenderPassColorAttachmentDescriptor){
+        const color_attachments = [_]c.WGPUColorAttachmentDescriptor{
+            (c.WGPUColorAttachmentDescriptor){
                 .attachment = tex_view,
                 .resolve_target = 0,
                 .channel = (c.WGPUPassChannel_Color){
@@ -280,6 +292,7 @@ pub const Preview = struct {
         const rpass = c.wgpu_command_encoder_begin_render_pass(
             cmd_encoder,
             &(c.WGPURenderPassDescriptor){
+                .label = "preview render pass",
                 .color_attachments = &color_attachments,
                 .color_attachments_length = color_attachments.len,
                 .depth_stencil_attachment = null,

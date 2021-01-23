@@ -79,16 +79,18 @@ pub const Window = struct {
         c.wgpu_request_adapter_async(&(c.WGPURequestAdapterOptions){
             .power_preference = c.WGPUPowerPreference._HighPerformance,
             .compatible_surface = surface,
-        }, 2 | 4 | 8, false, adapter_cb, &adapter);
+        }, 2 | 4 | 8, adapter_cb, &adapter);
 
         const device = c.wgpu_adapter_request_device(
             adapter,
-            0,
-            &(c.WGPUCLimits){
-                .max_bind_groups = 1,
+            &(c.WGPUDeviceDescriptor){
+                .label = "",
+                .features = 0,
+                .limits = (c.WGPULimits){
+                    .max_bind_groups = 1,
+                },
+                .trace_path = null,
             },
-            true,
-            null,
         );
 
         var out = try alloc.create(Self);
@@ -132,8 +134,8 @@ pub const Window = struct {
     ) void {}
 
     fn draw(self: *Self) !void {
-        const next_texture = c.wgpu_swap_chain_get_next_texture(self.swap_chain);
-        if (next_texture.view_id == 0) {
+        const next_texture_view = c.wgpu_swap_chain_get_current_texture_view(self.swap_chain);
+        if (next_texture_view == 0) {
             std.debug.panic("Cannot acquire next swap chain texture", .{});
         }
 
@@ -202,17 +204,17 @@ pub const Window = struct {
                 .x = menu_width * pixel_density,
                 .y = menu_height * pixel_density,
             },
-            next_texture,
+            next_texture_view,
             cmd_encoder,
         );
 
         // Draw the GUI, which has been building render lists until now
-        self.gui.draw(next_texture, cmd_encoder);
+        self.gui.draw(next_texture_view, cmd_encoder);
 
         const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);
         c.wgpu_queue_submit(self.queue, &cmd_buf, 1);
 
-        c.wgpu_swap_chain_present(self.swap_chain);
+        _ = c.wgpu_swap_chain_present(self.swap_chain);
     }
 
     pub fn run(self: *Self) !void {
@@ -234,7 +236,7 @@ pub const Window = struct {
             self.device,
             self.surface,
             &(c.WGPUSwapChainDescriptor){
-                .usage = c.WGPUTextureUsage_OUTPUT_ATTACHMENT,
+                .usage = c.WGPUTextureUsage_RENDER_ATTACHMENT,
                 .format = c.WGPUTextureFormat._Bgra8Unorm,
                 .width = width,
                 .height = height,

@@ -31,26 +31,32 @@ pub const Blit = struct {
 
         ////////////////////////////////////////////////////////////////////////////
         // Build the shaders using shaderc
-        const vert_spv = shaderc.build_shader_from_file(tmp_alloc, "shaders/blit.vert") catch |err| {
+        const blit_vert_name = "shaders/blit.vert";
+        const vert_spv = shaderc.build_shader_from_file(tmp_alloc, blit_vert_name) catch |err| {
             std.debug.panic("Could not open file", .{});
         };
         const vert_shader = c.wgpu_device_create_shader_module(
             device,
-            (c.WGPUShaderSource){
+            &(c.WGPUShaderModuleDescriptor){
+                .label = blit_vert_name,
                 .bytes = vert_spv.ptr,
                 .length = vert_spv.len,
+                .flags = c.WGPUShaderFlags_VALIDATION,
             },
         );
         defer c.wgpu_shader_module_destroy(vert_shader);
 
-        const frag_spv = shaderc.build_shader_from_file(tmp_alloc, "shaders/blit.frag") catch |err| {
+        const blit_frag_name = "shaders/blit.frag";
+        const frag_spv = shaderc.build_shader_from_file(tmp_alloc, blit_frag_name) catch |err| {
             std.debug.panic("Could not open file", .{});
         };
         const frag_shader = c.wgpu_device_create_shader_module(
             device,
-            (c.WGPUShaderSource){
+            &(c.WGPUShaderModuleDescriptor){
+                .label = blit_frag_name,
                 .bytes = frag_spv.ptr,
                 .length = frag_spv.len,
+                .flags = c.WGPUShaderFlags_VALIDATION,
             },
         );
         defer c.wgpu_shader_module_destroy(frag_shader);
@@ -68,7 +74,8 @@ pub const Blit = struct {
             .mipmap_filter = c.WGPUFilterMode._Nearest,
             .lod_min_clamp = 0.0,
             .lod_max_clamp = std.math.f32_max,
-            .compare = c.WGPUCompareFunction._Undefined,
+            .compare = c.WGPUCompareFunction_Undefined,
+            .border_color = c.WGPUSamplerBorderColor._TransparentBlack,
         });
 
         ////////////////////////////////////////////////////////////////////////////
@@ -80,8 +87,9 @@ pub const Blit = struct {
                 .ty = c.WGPUBindingType_SampledTexture,
 
                 .multisampled = false,
+                .filtering = false,
                 .view_dimension = c.WGPUTextureViewDimension._D2,
-                .texture_component_type = c.WGPUTextureComponentType._Uint,
+                .texture_component_type = c.WGPUTextureComponentType_Float,
                 .storage_texture_format = c.WGPUTextureFormat._Rgba32Float,
 
                 .count = undefined,
@@ -94,6 +102,7 @@ pub const Blit = struct {
                 .ty = c.WGPUBindingType_Sampler,
 
                 .multisampled = undefined,
+                .filtering = undefined,
                 .view_dimension = undefined,
                 .texture_component_type = undefined,
                 .storage_texture_format = undefined,
@@ -110,6 +119,7 @@ pub const Blit = struct {
                 .min_buffer_binding_size = 0,
 
                 .multisampled = undefined,
+                .filtering = undefined,
                 .view_dimension = undefined,
                 .texture_component_type = undefined,
                 .storage_texture_format = undefined,
@@ -131,6 +141,7 @@ pub const Blit = struct {
         const pipeline_layout = c.wgpu_device_create_pipeline_layout(
             device,
             &(c.WGPUPipelineLayoutDescriptor){
+                .label = "blit pipeline",
                 .bind_group_layouts = &bind_group_layouts,
                 .bind_group_layouts_length = bind_group_layouts.len,
             },
@@ -140,6 +151,7 @@ pub const Blit = struct {
         const render_pipeline = c.wgpu_device_create_render_pipeline(
             device,
             &(c.WGPURenderPipelineDescriptor){
+                .label = "blit render pipeline",
                 .layout = pipeline_layout,
                 .vertex_stage = (c.WGPUProgrammableStageDescriptor){
                     .module = vert_shader,
@@ -155,6 +167,8 @@ pub const Blit = struct {
                     .depth_bias = 0,
                     .depth_bias_slope_scale = 0.0,
                     .depth_bias_clamp = 0.0,
+                    .polygon_mode = c.WGPUPolygonMode._Fill,
+                    .clamp_depth = false,
                 },
                 .primitive_topology = c.WGPUPrimitiveTopology._TriangleList,
                 .color_states = &(c.WGPUColorStateDescriptor){
@@ -174,13 +188,13 @@ pub const Blit = struct {
                 .color_states_length = 1,
                 .depth_stencil_state = null,
                 .vertex_state = (c.WGPUVertexStateDescriptor){
-                    .index_format = c.WGPUIndexFormat._Uint16,
+                    .index_format = c.WGPUIndexFormat_Undefined,
                     .vertex_buffers = null,
                     .vertex_buffers_length = 0,
                 },
                 .sample_count = 1,
                 .sample_mask = 0,
-                .alpha_to_coverage_enabled = false,
+                .alpha_to_coverage = false,
             },
         );
 
@@ -254,12 +268,12 @@ pub const Blit = struct {
     pub fn draw(
         self: *const Self,
         viewport: Viewport,
-        next_texture: c.WGPUSwapChainOutput,
+        next_texture: c.WGPUOption_TextureViewId,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) void {
-        const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
-            (c.WGPURenderPassColorAttachmentDescriptor){
-                .attachment = next_texture.view_id,
+        const color_attachments = [_]c.WGPUColorAttachmentDescriptor{
+            (c.WGPUColorAttachmentDescriptor){
+                .attachment = next_texture,
                 .resolve_target = 0,
                 .channel = (c.WGPUPassChannel_Color){
                     .load_op = c.WGPULoadOp._Load,
@@ -278,6 +292,7 @@ pub const Blit = struct {
         const rpass = c.wgpu_command_encoder_begin_render_pass(
             cmd_encoder,
             &(c.WGPURenderPassDescriptor){
+                .label = "blit rpass",
                 .color_attachments = &color_attachments,
                 .color_attachments_length = color_attachments.len,
                 .depth_stencil_attachment = null,
@@ -292,7 +307,7 @@ pub const Blit = struct {
             viewport.y,
             viewport.width,
             viewport.height,
-            -1,
+            0,
             1,
         );
         c.wgpu_render_pass_draw(rpass, 3, 1, 0, 0);

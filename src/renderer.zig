@@ -167,7 +167,7 @@ pub const Renderer = struct {
     pub fn draw(
         self: *Self,
         viewport: Viewport,
-        next_texture: c.WGPUSwapChainOutput,
+        next_texture: c.WGPUOption_TextureViewId,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) !void {
         const width = @floatToInt(u32, viewport.width);
@@ -234,12 +234,12 @@ pub const Renderer = struct {
         self.preview.deinit();
         self.scene.deinit();
         self.destroy_textures();
-        c.wgpu_buffer_destroy(self.uniform_buf);
+        c.wgpu_buffer_destroy(self.uniform_buf, true);
     }
 
     fn destroy_textures(self: *Self) void {
-        c.wgpu_texture_destroy(self.tex);
-        c.wgpu_texture_view_destroy(self.tex_view);
+        c.wgpu_texture_destroy(self.tex, true);
+        c.wgpu_texture_view_destroy(self.tex_view, true);
     }
 
     pub fn update_size(self: *Self, width: u32, height: u32) void {
@@ -261,7 +261,7 @@ pub const Renderer = struct {
 
                 // We render to this texture, then use it as a source when
                 // blitting into the final UI image
-                .usage = (c.WGPUTextureUsage_OUTPUT_ATTACHMENT |
+                .usage = (c.WGPUTextureUsage_RENDER_ATTACHMENT |
                     c.WGPUTextureUsage_SAMPLED),
                 .label = "raytrace_tex",
             },

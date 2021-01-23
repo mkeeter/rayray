@@ -72,18 +72,22 @@ pub const Backend = struct {
         const vert_spv = try shaderc.build_shader_from_file(tmp_alloc, "shaders/gui.vert");
         const vert_shader = c.wgpu_device_create_shader_module(
             device,
-            (c.WGPUShaderSource){
+            &(c.WGPUShaderModuleDescriptor){
+                .label = "",
                 .bytes = vert_spv.ptr,
                 .length = vert_spv.len,
+                .flags = c.WGPUShaderFlags_VALIDATION,
             },
         );
         defer c.wgpu_shader_module_destroy(vert_shader);
         const frag_spv = try shaderc.build_shader_from_file(tmp_alloc, "shaders/gui.frag");
         const frag_shader = c.wgpu_device_create_shader_module(
             device,
-            (c.WGPUShaderSource){
+            &(c.WGPUShaderModuleDescriptor){
+                .label = "",
                 .bytes = frag_spv.ptr,
                 .length = frag_spv.len,
+                .flags = c.WGPUShaderFlags_VALIDATION,
             },
         );
         defer c.wgpu_shader_module_destroy(frag_shader);
@@ -113,7 +117,8 @@ pub const Backend = struct {
             .mipmap_filter = c.WGPUFilterMode._Nearest,
             .lod_min_clamp = 0.0,
             .lod_max_clamp = std.math.f32_max,
-            .compare = c.WGPUCompareFunction._Undefined,
+            .compare = c.WGPUCompareFunction_Undefined,
+            .border_color = c.WGPUSamplerBorderColor._TransparentBlack,
         });
 
         ////////////////////////////////////////////////////////////////////////////
@@ -128,6 +133,7 @@ pub const Backend = struct {
                 .min_buffer_binding_size = 0,
 
                 .multisampled = undefined,
+                .filtering = undefined,
                 .view_dimension = undefined,
                 .texture_component_type = undefined,
                 .storage_texture_format = undefined,
@@ -139,8 +145,9 @@ pub const Backend = struct {
                 .ty = c.WGPUBindingType_SampledTexture,
 
                 .multisampled = false,
+                .filtering = false,
                 .view_dimension = c.WGPUTextureViewDimension._D2,
-                .texture_component_type = c.WGPUTextureComponentType._Float,
+                .texture_component_type = c.WGPUTextureComponentType_Float,
                 .storage_texture_format = c.WGPUTextureFormat._Rgba8Unorm,
 
                 .count = undefined,
@@ -153,6 +160,7 @@ pub const Backend = struct {
                 .ty = c.WGPUBindingType_Sampler,
 
                 .multisampled = undefined,
+                .filtering = undefined,
                 .view_dimension = undefined,
                 .texture_component_type = undefined,
                 .storage_texture_format = undefined,
@@ -190,9 +198,9 @@ pub const Backend = struct {
                 .shader_location = 2,
             },
         };
-        const vertex_buffer_layout_entries = [_]c.WGPUVertexBufferLayoutDescriptor{
+        const vertex_buffer_layout_entries = [_]c.WGPUVertexBufferDescriptor{
             .{
-                .array_stride = @sizeOf(c.ImDrawVert),
+                .stride = @sizeOf(c.ImDrawVert),
                 .step_mode = c.WGPUInputStepMode._Vertex,
                 .attributes = &vertex_buffer_attributes,
                 .attributes_length = vertex_buffer_attributes.len,
@@ -203,6 +211,7 @@ pub const Backend = struct {
         const pipeline_layout = c.wgpu_device_create_pipeline_layout(
             device,
             &(c.WGPUPipelineLayoutDescriptor){
+                .label = "imgui backend pipeline layout",
                 .bind_group_layouts = &bind_group_layouts,
                 .bind_group_layouts_length = bind_group_layouts.len,
             },
@@ -212,6 +221,7 @@ pub const Backend = struct {
         const render_pipeline = c.wgpu_device_create_render_pipeline(
             device,
             &(c.WGPURenderPipelineDescriptor){
+                .label = "imgui backend pipeline",
                 .layout = pipeline_layout,
                 .vertex_stage = (c.WGPUProgrammableStageDescriptor){
                     .module = vert_shader,
@@ -227,6 +237,8 @@ pub const Backend = struct {
                     .depth_bias = 0,
                     .depth_bias_slope_scale = 0.0,
                     .depth_bias_clamp = 0.0,
+                    .polygon_mode = c.WGPUPolygonMode._Fill,
+                    .clamp_depth = false,
                 },
                 .primitive_topology = c.WGPUPrimitiveTopology._TriangleList,
                 .color_states = &(c.WGPUColorStateDescriptor){
@@ -246,13 +258,13 @@ pub const Backend = struct {
                 .color_states_length = 1,
                 .depth_stencil_state = null,
                 .vertex_state = (c.WGPUVertexStateDescriptor){
-                    .index_format = c.WGPUIndexFormat._Uint32,
+                    .index_format = c.WGPUIndexFormat_Uint32,
                     .vertex_buffers = &vertex_buffer_layout_entries,
                     .vertex_buffers_length = vertex_buffer_layout_entries.len,
                 },
                 .sample_count = 1,
                 .sample_mask = 0,
-                .alpha_to_coverage_enabled = false,
+                .alpha_to_coverage = false,
             },
         );
 
@@ -361,8 +373,8 @@ pub const Backend = struct {
         // Font texture
         const font = Font.from_io(io);
         if (self.initialized) {
-            c.wgpu_texture_destroy(self.font_tex);
-            c.wgpu_texture_view_destroy(self.font_tex_view);
+            c.wgpu_texture_destroy(self.font_tex, true);
+            c.wgpu_texture_view_destroy(self.font_tex_view, true);
         }
         self.font_tex = c.wgpu_device_create_texture(
             self.device,
@@ -421,13 +433,13 @@ pub const Backend = struct {
 
     pub fn deinit(self: *Self) void {
         self.alloc.free(self.font_ttf);
-        c.wgpu_buffer_destroy(self.uniform_buf);
+        c.wgpu_buffer_destroy(self.uniform_buf, true);
         c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
-        c.wgpu_texture_destroy(self.font_tex);
-        c.wgpu_texture_view_destroy(self.font_tex_view);
+        c.wgpu_texture_destroy(self.font_tex, true);
+        c.wgpu_texture_view_destroy(self.font_tex_view, true);
         c.wgpu_sampler_destroy(self.tex_sampler);
-        c.wgpu_buffer_destroy(self.vertex_buf);
-        c.wgpu_buffer_destroy(self.index_buf);
+        c.wgpu_buffer_destroy(self.vertex_buf, true);
+        c.wgpu_buffer_destroy(self.index_buf, true);
         c.wgpu_render_pipeline_destroy(self.render_pipeline);
     }
 
@@ -438,7 +450,7 @@ pub const Backend = struct {
         if (vtx_bytes > self.vertex_buf_size) {
             // Regenerate vertex buf
             if (self.initialized) {
-                c.wgpu_buffer_destroy(self.vertex_buf);
+                c.wgpu_buffer_destroy(self.vertex_buf, true);
             }
             self.vertex_buf_size = vtx_bytes;
             self.vertex_buf = c.wgpu_device_create_buffer(
@@ -454,7 +466,7 @@ pub const Backend = struct {
         if (idx_bytes > self.index_buf_size) {
             // Regenerate index buf
             if (self.initialized) {
-                c.wgpu_buffer_destroy(self.index_buf);
+                c.wgpu_buffer_destroy(self.index_buf, true);
             }
             self.index_buf = c.wgpu_device_create_buffer(
                 self.device,
@@ -503,7 +515,7 @@ pub const Backend = struct {
 
     pub fn render_draw_data(
         self: *Self,
-        next_texture: c.WGPUSwapChainOutput,
+        next_texture: c.WGPUOption_TextureViewId,
         cmd_encoder: c.WGPUCommandEncoderId,
         draw_data: [*c]c.ImDrawData,
     ) void {
@@ -514,9 +526,9 @@ pub const Backend = struct {
         const clip_scale = draw_data.*.FramebufferScale; // (1,1) unless using retina display which are often (2,2)
 
         // Render to the main view
-        const color_attachments = [_]c.WGPURenderPassColorAttachmentDescriptor{
-            (c.WGPURenderPassColorAttachmentDescriptor){
-                .attachment = next_texture.view_id,
+        const color_attachments = [_]c.WGPUColorAttachmentDescriptor{
+            (c.WGPUColorAttachmentDescriptor){
+                .attachment = next_texture,
                 .resolve_target = 0,
                 .channel = (c.WGPUPassChannel_Color){
                     .load_op = c.WGPULoadOp._Load,
@@ -579,6 +591,7 @@ pub const Backend = struct {
                 const rpass = c.wgpu_command_encoder_begin_render_pass(
                     cmd_encoder,
                     &(c.WGPURenderPassDescriptor){
+                        .label = "backend rpass",
                         .color_attachments = &color_attachments,
                         .color_attachments_length = color_attachments.len,
                         .depth_stencil_attachment = null,
@@ -598,7 +611,8 @@ pub const Backend = struct {
                 c.wgpu_render_pass_set_index_buffer(
                     rpass,
                     self.index_buf,
-                    idx_buf_offset,
+                    c.WGPUIndexFormat_Uint32,
+                    @intCast(u32, idx_buf_offset),
                     idx_buf_size,
                 );
                 c.wgpu_render_pass_set_bind_group(rpass, 0, bind_group, null, 0);

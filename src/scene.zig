@@ -175,6 +175,10 @@ pub const Scene = struct {
             1000,
             ground_material,
         ));
+        const glass_mat = try scene.new_material(
+            Material.new_glass(1, 1, 1, 1.5),
+        );
+
         var a: i32 = -11;
         while (a < 11) : (a += 1) {
             var b: i32 = -11;
@@ -209,20 +213,17 @@ pub const Scene = struct {
                             Material.new_metal(red, green, blue, fuzz),
                         );
                     } else {
-                        mat = try scene.new_material(
-                            Material.new_glass(1, 1, 1, 1.5),
-                        );
+                        mat = glass_mat;
                     }
                     try scene.shapes.append(Shape.new_sphere(.{ .x = x, .y = y, .z = z }, 0.2, mat));
                 }
             }
         }
 
-        const glass = try scene.new_material(Material.new_glass(1, 1, 1, 1.5));
         try scene.shapes.append(Shape.new_sphere(
             .{ .x = 0, .y = 1, .z = 0 },
             1,
-            glass,
+            glass_mat,
         ));
 
         const diffuse = try scene.new_material(Material.new_diffuse(0.4, 0.2, 0.1));

@@ -123,7 +123,7 @@ pub const Renderer = struct {
         return changed;
     }
 
-    pub fn draw_gui(self: *Self, menu_height: f32, menu_width: *f32) !void {
+    pub fn draw_gui(self: *Self, menu_height: f32, menu_width: *f32) !bool {
         var changed = false;
 
         c.igPushStyleVarFloat(c.ImGuiStyleVar_WindowRounding, 0.0);
@@ -162,6 +162,7 @@ pub const Renderer = struct {
             try self.preview.upload_scene(self.scene);
             self.uniforms.samples = 0;
         }
+        return changed;
     }
 
     pub fn draw(

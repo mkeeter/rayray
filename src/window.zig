@@ -2,6 +2,7 @@ const builtin = @import("builtin");
 const std = @import("std");
 
 const c = @import("c.zig");
+const Debounce = @import("debounce.zig").Debounce;
 const Options = @import("options.zig").Options;
 const Renderer = @import("renderer.zig").Renderer;
 const Scene = @import("scene.zig").Scene;
@@ -23,6 +24,7 @@ pub const Window = struct {
     // Subsystems
     renderer: Renderer,
     gui: Gui,
+    debounce: Debounce,
 
     show_editor: bool,
     show_gui_demo: bool,
@@ -109,6 +111,7 @@ pub const Window = struct {
             .swap_chain = undefined,
             .renderer = try Renderer.init(alloc, scene, options, device),
             .gui = try Gui.init(alloc, window, device),
+            .debounce = Debounce.init(),
             .show_editor = false,
             .show_gui_demo = false,
         };
@@ -134,6 +137,11 @@ pub const Window = struct {
     ) void {}
 
     fn draw(self: *Self) !void {
+        if (self.debounce.check()) {
+            var s = try self.renderer.scene.clone();
+            std.debug.print("Got debounced scene {}\n", .{s});
+            s.deinit();
+        }
         const next_texture_view = c.wgpu_swap_chain_get_current_texture_view(self.swap_chain);
         if (next_texture_view == 0) {
             std.debug.panic("Cannot acquire next swap chain texture", .{});
@@ -186,7 +194,9 @@ pub const Window = struct {
             c.igEndMainMenuBar();
         }
         if (self.show_editor) {
-            try self.renderer.draw_gui(menu_height, &menu_width);
+            if (try self.renderer.draw_gui(menu_height, &menu_width)) {
+                try self.debounce.update(100);
+            }
         }
 
         if (self.show_gui_demo) {

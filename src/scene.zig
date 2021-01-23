@@ -22,6 +22,29 @@ pub const Scene = struct {
         };
     }
 
+    pub fn clone(self: *const Self) !Self {
+        var shapes = try std.ArrayList(Shape).initCapacity(
+            self.alloc,
+            self.shapes.items.len,
+        );
+        for (self.shapes.items) |s| {
+            try shapes.append(s);
+        }
+        var materials = try std.ArrayList(Material).initCapacity(
+            self.alloc,
+            self.materials.items.len,
+        );
+        for (self.materials.items) |m| {
+            try materials.append(m);
+        }
+        return Self{
+            .alloc = self.alloc,
+            .shapes = shapes,
+            .materials = materials,
+            .camera = self.camera,
+        };
+    }
+
     fn default_camera() c.rayCamera {
         return .{
             .pos = .{ .x = 0, .y = 0, .z = 1 },
@@ -311,10 +334,6 @@ pub const Scene = struct {
     }
 
     pub fn encode(self: *const Self) ![]c.vec4 {
-        const trace_g = try self.trace_glsl();
-        defer self.alloc.free(trace_g);
-        std.debug.print("trace:\n{s}\n", .{trace_g});
-
         const offset = self.shapes.items.len + 1;
 
         // Data is packed into an array of vec4s in a GPU buffer:

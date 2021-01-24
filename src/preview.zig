@@ -22,11 +22,12 @@ pub const Preview = struct {
     bind_group: c.WGPUBindGroupId,
     bind_group_layout: c.WGPUBindGroupLayoutId,
 
-    uniform_buffer: c.WGPUBufferId, // owned by the parent Renderer
-    scene_buffer: c.WGPUBufferId,
-    scene_buffer_len: usize,
+    uniform_buf: c.WGPUBufferId, // owned by the parent Renderer
+    scene_buf: c.WGPUBufferId,
+    scene_buf_len: usize,
 
-    tex_view: c.WGPUTextureViewId, // owned by the parent Renderer
+    image_buf: c.WGPUBufferId, // owned by the parent Renderer
+    image_buf_size: u32,
 
     compute_pipeline: c.WGPUComputePipelineId,
 
@@ -35,7 +36,8 @@ pub const Preview = struct {
         scene: Scene,
         device: c.WGPUDeviceId,
         uniform_buf: c.WGPUBufferId,
-        tex_view: c.WGPUTextureViewId,
+        image_buf: c.WGPUBufferId,
+        image_buf_size: u32,
     ) !Self {
         var arena = std.heap.ArenaAllocator.init(alloc);
         const tmp_alloc: *std.mem.Allocator = &arena.allocator;
@@ -76,21 +78,20 @@ pub const Preview = struct {
                 .storage_texture_format = undefined,
                 .count = undefined,
             },
-            (c.WGPUBindGroupLayoutEntry){ // Output image
+            (c.WGPUBindGroupLayoutEntry){ // Image buffer
                 .binding = 1,
                 .visibility = c.WGPUShaderStage_COMPUTE,
-                .ty = c.WGPUBindingType_WriteonlyStorageTexture,
+                .ty = c.WGPUBindingType_StorageBuffer,
 
-                .storage_texture_format = c.WGPUTextureFormat._Rgba32Float,
-                .view_dimension = c.WGPUTextureViewDimension._D2,
-
-                .has_dynamic_offset = undefined,
-                .min_buffer_binding_size = undefined,
+                .has_dynamic_offset = false,
+                .min_buffer_binding_size = 0,
 
                 .multisampled = undefined,
-                .texture_component_type = undefined,
-                .count = undefined,
                 .filtering = undefined,
+                .view_dimension = undefined,
+                .texture_component_type = undefined,
+                .storage_texture_format = undefined,
+                .count = undefined,
             },
             (c.WGPUBindGroupLayoutEntry){ // Scene buffer
                 .binding = 2,
@@ -151,11 +152,12 @@ pub const Preview = struct {
 
             .bind_group = undefined, // assigned in upload_scene() below
             .bind_group_layout = bind_group_layout,
-            .scene_buffer = undefined, // assigned in upload_scene() below
-            .scene_buffer_len = 0,
-            .uniform_buffer = uniform_buf,
+            .scene_buf = undefined, // assigned in upload_scene() below
+            .scene_buf_len = 0,
+            .uniform_buf = uniform_buf,
 
-            .tex_view = tex_view,
+            .image_buf = image_buf,
+            .image_buf_size = image_buf_size,
 
             .compute_pipeline = compute_pipeline,
         };
@@ -164,15 +166,16 @@ pub const Preview = struct {
         return out;
     }
 
-    pub fn bind(self: *Self, tex_view: c.WGPUTextureViewId) void {
-        self.tex_view = tex_view;
+    pub fn bind(self: *Self, image_buf: c.WGPUBufferId, image_buf_size: u32) void {
+        self.image_buf = image_buf;
+        self.image_buf_size = image_buf_size;
         self.rebuild_bind_group();
     }
 
     pub fn deinit(self: *Self) void {
         c.wgpu_bind_group_destroy(self.bind_group);
         c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
-        c.wgpu_buffer_destroy(self.scene_buffer, true);
+        c.wgpu_buffer_destroy(self.scene_buf, true);
 
         c.wgpu_compute_pipeline_destroy(self.compute_pipeline);
     }
@@ -185,7 +188,7 @@ pub const Preview = struct {
         const bind_group_entries = [_]c.WGPUBindGroupEntry{
             (c.WGPUBindGroupEntry){
                 .binding = 0,
-                .buffer = self.uniform_buffer,
+                .buffer = self.uniform_buf,
                 .offset = 0,
                 .size = @sizeOf(c.rayUniforms),
 
@@ -194,18 +197,18 @@ pub const Preview = struct {
             },
             (c.WGPUBindGroupEntry){
                 .binding = 1,
-                .texture_view = self.tex_view,
-                .buffer = 0, // None
-                .sampler = 0, // None
+                .buffer = self.image_buf,
+                .offset = 0,
+                .size = self.image_buf_size,
 
-                .offset = undefined,
-                .size = undefined,
+                .sampler = 0, // None
+                .texture_view = 0, // None
             },
             (c.WGPUBindGroupEntry){
                 .binding = 2,
-                .buffer = self.scene_buffer,
+                .buffer = self.scene_buf,
                 .offset = 0,
-                .size = self.scene_buffer_len,
+                .size = self.scene_buf_len,
 
                 .sampler = 0, // None
                 .texture_view = 0, // None
@@ -228,28 +231,28 @@ pub const Preview = struct {
         const encoded = try scene.encode();
         defer self.alloc.free(encoded);
 
-        const scene_buffer_len = encoded.len * @sizeOf(c.vec4);
+        const scene_buf_len = encoded.len * @sizeOf(c.vec4);
 
-        if (scene_buffer_len > self.scene_buffer_len) {
+        if (scene_buf_len > self.scene_buf_len) {
             if (self.initialized) {
-                c.wgpu_buffer_destroy(self.scene_buffer, true);
+                c.wgpu_buffer_destroy(self.scene_buf, true);
             }
-            self.scene_buffer = c.wgpu_device_create_buffer(
+            self.scene_buf = c.wgpu_device_create_buffer(
                 self.device,
                 &(c.WGPUBufferDescriptor){
                     .label = "raytrace scene",
-                    .size = scene_buffer_len,
+                    .size = scene_buf_len,
                     .usage = c.WGPUBufferUsage_STORAGE | c.WGPUBufferUsage_COPY_DST,
                     .mapped_at_creation = false,
                 },
             );
-            self.scene_buffer_len = scene_buffer_len;
+            self.scene_buf_len = scene_buf_len;
             self.rebuild_bind_group();
         }
 
         c.wgpu_queue_write_buffer(
             self.queue,
-            self.scene_buffer,
+            self.scene_buf,
             0,
             @ptrCast([*c]const u8, encoded.ptr),
             encoded.len * @sizeOf(c.vec4),
@@ -259,8 +262,7 @@ pub const Preview = struct {
     pub fn render(
         self: *Self,
         first: bool,
-        nx: u32,
-        ny: u32,
+        nt: u32,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) !void {
         const cpass = c.wgpu_command_encoder_begin_compute_pass(
@@ -270,7 +272,7 @@ pub const Preview = struct {
 
         c.wgpu_compute_pass_set_pipeline(cpass, self.compute_pipeline);
         c.wgpu_compute_pass_set_bind_group(cpass, 0, self.bind_group, null, 0);
-        c.wgpu_compute_pass_dispatch(cpass, nx, ny, 1);
+        c.wgpu_compute_pass_dispatch(cpass, nt, 1, 1);
         c.wgpu_compute_pass_end_pass(cpass);
     }
 };

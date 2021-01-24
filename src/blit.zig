@@ -14,7 +14,6 @@ pub const Blit = struct {
     queue: c.WGPUQueueId,
 
     bind_group_layout: c.WGPUBindGroupLayoutId,
-    tex_sampler: c.WGPUSamplerId,
     bind_group: c.WGPUBindGroupId,
 
     render_pipeline: c.WGPURenderPipelineId,
@@ -22,8 +21,9 @@ pub const Blit = struct {
     pub fn init(
         alloc: *std.mem.Allocator,
         device: c.WGPUDeviceId,
-        tex_view: c.WGPUTextureViewId,
         uniform_buf: c.WGPUBufferId,
+        image_buf: c.WGPUBufferId,
+        image_buf_size: u32,
     ) !Blit {
         var arena = std.heap.ArenaAllocator.init(alloc);
         const tmp_alloc: *std.mem.Allocator = &arena.allocator;
@@ -61,45 +61,16 @@ pub const Blit = struct {
         );
         defer c.wgpu_shader_module_destroy(frag_shader);
 
-        ///////////////////////////////////////////////////////////////////////
-        // Texture sampler (the texture comes from the Preview struct)
-        const tex_sampler = c.wgpu_device_create_sampler(device, &(c.WGPUSamplerDescriptor){
-            .next_in_chain = null,
-            .label = "tex_sampler",
-            .address_mode_u = c.WGPUAddressMode._ClampToEdge,
-            .address_mode_v = c.WGPUAddressMode._ClampToEdge,
-            .address_mode_w = c.WGPUAddressMode._ClampToEdge,
-            .mag_filter = c.WGPUFilterMode._Linear,
-            .min_filter = c.WGPUFilterMode._Nearest,
-            .mipmap_filter = c.WGPUFilterMode._Nearest,
-            .lod_min_clamp = 0.0,
-            .lod_max_clamp = std.math.f32_max,
-            .compare = c.WGPUCompareFunction_Undefined,
-            .border_color = c.WGPUSamplerBorderColor._TransparentBlack,
-        });
-
         ////////////////////////////////////////////////////////////////////////////
         // Bind groups
         const bind_group_layout_entries = [_]c.WGPUBindGroupLayoutEntry{
-            (c.WGPUBindGroupLayoutEntry){
+            (c.WGPUBindGroupLayoutEntry){ // Pseudo-texture
                 .binding = 0,
                 .visibility = c.WGPUShaderStage_FRAGMENT,
-                .ty = c.WGPUBindingType_SampledTexture,
+                .ty = c.WGPUBindingType_StorageBuffer,
 
-                .multisampled = false,
-                .filtering = false,
-                .view_dimension = c.WGPUTextureViewDimension._D2,
-                .texture_component_type = c.WGPUTextureComponentType_Float,
-                .storage_texture_format = c.WGPUTextureFormat._Rgba32Float,
-
-                .count = undefined,
-                .has_dynamic_offset = undefined,
-                .min_buffer_binding_size = undefined,
-            },
-            (c.WGPUBindGroupLayoutEntry){
-                .binding = 1,
-                .visibility = c.WGPUShaderStage_FRAGMENT,
-                .ty = c.WGPUBindingType_Sampler,
+                .has_dynamic_offset = false,
+                .min_buffer_binding_size = 0,
 
                 .multisampled = undefined,
                 .filtering = undefined,
@@ -107,11 +78,9 @@ pub const Blit = struct {
                 .texture_component_type = undefined,
                 .storage_texture_format = undefined,
                 .count = undefined,
-                .has_dynamic_offset = undefined,
-                .min_buffer_binding_size = undefined,
             },
             (c.WGPUBindGroupLayoutEntry){ // Uniforms buffer
-                .binding = 2,
+                .binding = 1,
                 .visibility = c.WGPUShaderStage_FRAGMENT,
                 .ty = c.WGPUBindingType_UniformBuffer,
 
@@ -201,20 +170,20 @@ pub const Blit = struct {
         var out = Self{
             .device = device,
             .queue = c.wgpu_device_get_default_queue(device),
-            .tex_sampler = tex_sampler,
             .render_pipeline = render_pipeline,
             .bind_group_layout = bind_group_layout,
-            .bind_group = undefined, // Assigned in bind_to_tex below
+            .bind_group = undefined, // Assigned in bind below
         };
-        out.bind(tex_view, uniform_buf);
+        out.bind(uniform_buf, image_buf, image_buf_size);
         out.initialized = true;
         return out;
     }
 
     pub fn bind(
         self: *Self,
-        tex_view: c.WGPUTextureViewId,
         uniform_buf: c.WGPUBufferId,
+        image_buf: c.WGPUBufferId,
+        image_buf_size: u32,
     ) void {
         if (self.initialized) {
             c.wgpu_bind_group_destroy(self.bind_group);
@@ -222,24 +191,15 @@ pub const Blit = struct {
         const bind_group_entries = [_]c.WGPUBindGroupEntry{
             (c.WGPUBindGroupEntry){
                 .binding = 0,
-                .texture_view = tex_view,
-                .sampler = 0, // None
-                .buffer = 0, // None
+                .buffer = image_buf,
+                .offset = 0,
+                .size = image_buf_size,
 
-                .offset = undefined,
-                .size = undefined,
+                .sampler = 0, // None
+                .texture_view = 0, // None
             },
             (c.WGPUBindGroupEntry){
                 .binding = 1,
-                .sampler = self.tex_sampler,
-                .texture_view = 0, // None
-                .buffer = 0, // None
-
-                .offset = undefined,
-                .size = undefined,
-            },
-            (c.WGPUBindGroupEntry){
-                .binding = 2,
                 .buffer = uniform_buf,
                 .offset = 0,
                 .size = @sizeOf(c.rayUniforms),
@@ -260,7 +220,6 @@ pub const Blit = struct {
     }
 
     pub fn deinit(self: *Self) void {
-        c.wgpu_sampler_destroy(self.tex_sampler);
         c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
         c.wgpu_bind_group_destroy(self.bind_group);
     }

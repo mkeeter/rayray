@@ -20,8 +20,8 @@ typedef struct {
 } vec4;
 #endif
 
-#define COMPUTE_X_SIZE 16
-#define COMPUTE_Y_SIZE 16
+// Size of compute shader thread-group (run as a 1D shader)
+#define COMPUTE_SIZE 64
 
 #define SHAPE_NONE 0
 #define SHAPE_SPHERE 1

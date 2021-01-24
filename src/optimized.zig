@@ -22,7 +22,8 @@ pub const Optimized = struct {
         comp_shader: c.WGPUShaderModuleId,
         device: c.WGPUDeviceId,
         uniform_buf: c.WGPUBufferId,
-        tex_view: c.WGPUTextureViewId,
+        image_buf: c.WGPUTextureViewId,
+        image_buf_size: u32,
     ) !Self {
         var arena = std.heap.ArenaAllocator.init(alloc);
         const tmp_alloc: *std.mem.Allocator = &arena.allocator;
@@ -46,21 +47,20 @@ pub const Optimized = struct {
                 .storage_texture_format = undefined,
                 .count = undefined,
             },
-            (c.WGPUBindGroupLayoutEntry){ // Output image
+            (c.WGPUBindGroupLayoutEntry){ // Image buffer
                 .binding = 1,
                 .visibility = c.WGPUShaderStage_COMPUTE,
-                .ty = c.WGPUBindingType_WriteonlyStorageTexture,
+                .ty = c.WGPUBindingType_StorageBuffer,
 
-                .storage_texture_format = c.WGPUTextureFormat._Rgba32Float,
-                .view_dimension = c.WGPUTextureViewDimension._D2,
-
-                .has_dynamic_offset = undefined,
-                .min_buffer_binding_size = undefined,
+                .has_dynamic_offset = false,
+                .min_buffer_binding_size = 0,
 
                 .multisampled = undefined,
-                .texture_component_type = undefined,
-                .count = undefined,
                 .filtering = undefined,
+                .view_dimension = undefined,
+                .texture_component_type = undefined,
+                .storage_texture_format = undefined,
+                .count = undefined,
             },
         };
         const bind_group_layout = c.wgpu_device_create_bind_group_layout(
@@ -104,7 +104,7 @@ pub const Optimized = struct {
             .bind_group_layout = bind_group_layout,
             .compute_pipeline = compute_pipeline,
         };
-        out.rebuild_bind_group(uniform_buf, tex_view);
+        out.rebuild_bind_group(uniform_buf, image_buf, image_buf_size);
         out.initialized = true;
         return out;
     }
@@ -112,7 +112,8 @@ pub const Optimized = struct {
     pub fn rebuild_bind_group(
         self: *Self,
         uniform_buf: c.WGPUBufferId,
-        tex_view: c.WGPUTextureViewId,
+        image_buf: c.WGPUBufferId,
+        image_buf_size: u32,
     ) void {
         if (self.initialized) {
             c.wgpu_bind_group_destroy(self.bind_group);
@@ -130,12 +131,12 @@ pub const Optimized = struct {
             },
             (c.WGPUBindGroupEntry){
                 .binding = 1,
-                .texture_view = tex_view,
-                .buffer = 0, // None
-                .sampler = 0, // None
+                .buffer = image_buf,
+                .offset = 0,
+                .size = image_buf_size,
 
-                .offset = undefined,
-                .size = undefined,
+                .sampler = 0, // None
+                .texture_view = 0, // None
             },
         };
         self.bind_group = c.wgpu_device_create_bind_group(
@@ -158,8 +159,7 @@ pub const Optimized = struct {
     pub fn render(
         self: *Self,
         first: bool,
-        nx: u32,
-        ny: u32,
+        nt: u32,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) !void {
         const cpass = c.wgpu_command_encoder_begin_compute_pass(
@@ -169,7 +169,7 @@ pub const Optimized = struct {
 
         c.wgpu_compute_pass_set_pipeline(cpass, self.compute_pipeline);
         c.wgpu_compute_pass_set_bind_group(cpass, 0, self.bind_group, null, 0);
-        c.wgpu_compute_pass_dispatch(cpass, nx, ny, 1);
+        c.wgpu_compute_pass_dispatch(cpass, nt, 1, 1);
         c.wgpu_compute_pass_end_pass(cpass);
     }
 };

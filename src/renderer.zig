@@ -23,9 +23,10 @@ pub const Renderer = struct {
 
     scene: Scene,
 
-    // We accumulate rays into this texture, then blit it to the screen
-    tex: c.WGPUTextureId,
-    tex_view: c.WGPUTextureViewId,
+    // This is a buffer which we use for ray storage.  It's equivalent to
+    // a texture, but can be read and written in the same shader.
+    image_buf: c.WGPUBufferId,
+    image_buf_size: u32,
 
     compiler: ?AsyncShaderc,
     preview: Preview,
@@ -69,8 +70,8 @@ pub const Renderer = struct {
             .scene = scene,
 
             // Populated in update_size()
-            .tex = undefined,
-            .tex_view = undefined,
+            .image_buf = undefined,
+            .image_buf_size = undefined,
 
             .uniforms = .{
                 // Populated in update_size()
@@ -87,9 +88,23 @@ pub const Renderer = struct {
             .start_time_ms = 0,
             .frame = 0,
         };
+
         out.update_size(options.width, options.height);
-        out.blit = try Blit.init(alloc, device, out.tex_view, uniform_buf);
-        out.preview = try Preview.init(alloc, scene, device, uniform_buf, out.tex_view);
+        out.blit = try Blit.init(
+            alloc,
+            device,
+            uniform_buf,
+            out.image_buf,
+            out.image_buf_size,
+        );
+        out.preview = try Preview.init(
+            alloc,
+            scene,
+            device,
+            uniform_buf,
+            out.image_buf,
+            out.image_buf_size,
+        );
         out.initialized = true;
 
         return out;
@@ -217,7 +232,8 @@ pub const Renderer = struct {
                         comp_shader,
                         self.device,
                         self.uniform_buf,
-                        self.tex_view,
+                        self.image_buf,
+                        self.image_buf_size,
                     );
                 }
                 comp.deinit();
@@ -240,12 +256,12 @@ pub const Renderer = struct {
 
         // Cast another set of rays, one per pixel
         const first = self.uniforms.samples == 0;
-        const nx = (self.uniforms.width_px + c.COMPUTE_X_SIZE - 1) / c.COMPUTE_X_SIZE;
-        const ny = (self.uniforms.height_px + c.COMPUTE_Y_SIZE - 1) / c.COMPUTE_Y_SIZE;
+        const n = self.uniforms.width_px * self.uniforms.height_px;
+        const nt = (n + c.COMPUTE_SIZE - 1) / c.COMPUTE_SIZE;
         if (self.optimized) |*opt| {
-            try opt.render(first, nx, ny, cmd_encoder);
+            try opt.render(first, nt, cmd_encoder);
         } else {
-            try self.preview.render(first, nx, ny, cmd_encoder);
+            try self.preview.render(first, nt, cmd_encoder);
         }
 
         self.uniforms.samples += self.uniforms.samples_per_frame;
@@ -299,50 +315,22 @@ pub const Renderer = struct {
             opt.deinit();
         }
         self.scene.deinit();
-        self.destroy_textures();
         c.wgpu_buffer_destroy(self.uniform_buf, true);
-    }
-
-    fn destroy_textures(self: *Self) void {
-        c.wgpu_texture_destroy(self.tex, true);
-        c.wgpu_texture_view_destroy(self.tex_view, true);
+        c.wgpu_buffer_destroy(self.image_buf, true);
     }
 
     pub fn update_size(self: *Self, width: u32, height: u32) void {
         if (self.initialized) {
-            self.destroy_textures();
+            c.wgpu_buffer_destroy(self.image_buf, true);
         }
-        self.tex = c.wgpu_device_create_texture(
+        self.image_buf_size = width * height * 4 * @sizeOf(f32);
+        self.image_buf = c.wgpu_device_create_buffer(
             self.device,
-            &(c.WGPUTextureDescriptor){
-                .size = .{
-                    .width = width,
-                    .height = height,
-                    .depth = 1,
-                },
-                .mip_level_count = 1,
-                .sample_count = 1,
-                .dimension = c.WGPUTextureDimension._D2,
-                .format = c.WGPUTextureFormat._Rgba32Float,
-
-                // We render to this texture, then use it as a source when
-                // blitting into the final UI image
-                .usage = (c.WGPUTextureUsage_SAMPLED |
-                    c.WGPUTextureUsage_STORAGE),
-                .label = "raytrace_tex",
-            },
-        );
-        self.tex_view = c.wgpu_texture_create_view(
-            self.tex,
-            &(c.WGPUTextureViewDescriptor){
-                .label = "raytrace_tex_view",
-                .dimension = c.WGPUTextureViewDimension._D2,
-                .format = c.WGPUTextureFormat._Rgba32Float,
-                .aspect = c.WGPUTextureAspect._All,
-                .base_mip_level = 0,
-                .level_count = 1,
-                .base_array_layer = 0,
-                .array_layer_count = 1,
+            &(c.WGPUBufferDescriptor){
+                .label = "image buf",
+                .size = self.image_buf_size,
+                .usage = c.WGPUBufferUsage_STORAGE,
+                .mapped_at_creation = false,
             },
         );
 
@@ -353,10 +341,10 @@ pub const Renderer = struct {
         self.start_time_ms = std.time.milliTimestamp();
 
         if (self.initialized) {
-            self.blit.bind(self.tex_view, self.uniform_buf);
-            self.preview.bind(self.tex_view);
+            self.blit.bind(self.uniform_buf, self.image_buf, self.image_buf_size);
+            self.preview.bind(self.image_buf, self.image_buf_size);
             if (self.optimized) |*opt| {
-                opt.rebuild_bind_group(self.uniform_buf, self.tex_view);
+                opt.rebuild_bind_group(self.uniform_buf, self.image_buf, self.image_buf_size);
             }
         }
     }

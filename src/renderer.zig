@@ -205,8 +205,8 @@ pub const Renderer = struct {
     ) !void {
         // Check whether the compiler for a scene-specific shader has finished
         if (self.compiler) |*comp| {
-            if (comp.check()) |frag_shader| {
-                defer c.wgpu_shader_module_destroy(frag_shader);
+            if (comp.check()) |comp_shader| {
+                defer c.wgpu_shader_module_destroy(comp_shader);
                 if (self.optimized) |*opt| {
                     opt.deinit();
                     self.optimized = null;
@@ -214,7 +214,7 @@ pub const Renderer = struct {
                 if (!comp.cancelled) {
                     self.optimized = try Optimized.init(
                         self.alloc,
-                        frag_shader,
+                        comp_shader,
                         self.device,
                         self.uniform_buf,
                         self.tex_view,
@@ -242,11 +242,11 @@ pub const Renderer = struct {
         const first = self.uniforms.samples == 0;
         const nx = (self.uniforms.width_px + c.COMPUTE_X_SIZE - 1) / c.COMPUTE_X_SIZE;
         const ny = (self.uniforms.height_px + c.COMPUTE_Y_SIZE - 1) / c.COMPUTE_Y_SIZE;
-        //if (self.optimized) |*opt| {
-        //try opt.render(first, nx, ny, cmd_encoder);
-        //} else {
-        try self.preview.render(first, nx, ny, cmd_encoder);
-        //}
+        if (self.optimized) |*opt| {
+            try opt.render(first, nx, ny, cmd_encoder);
+        } else {
+            try self.preview.render(first, nx, ny, cmd_encoder);
+        }
 
         self.uniforms.samples += self.uniforms.samples_per_frame;
         self.frame += 1;

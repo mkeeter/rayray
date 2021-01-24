@@ -44,7 +44,6 @@ pub const AsyncShaderc = struct {
         const txt = self.scene.trace_glsl() catch |err| {
             std.debug.panic("Failed to generate GLSL: {}\n", .{err});
         };
-        std.debug.print("Compiling {s}\n", .{txt});
         defer self.alloc.free(txt);
         const comp_spv = shaderc.build_shader(self.alloc, "rt", txt) catch |err| {
             std.debug.panic("Failed to build shader: {}\n", .{err});

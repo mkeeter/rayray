@@ -33,7 +33,7 @@ pub const Optimized = struct {
         const bind_group_layout_entries = [_]c.WGPUBindGroupLayoutEntry{
             (c.WGPUBindGroupLayoutEntry){ // Uniforms buffer
                 .binding = 0,
-                .visibility = c.WGPUShaderStage_FRAGMENT,
+                .visibility = c.WGPUShaderStage_COMPUTE,
                 .ty = c.WGPUBindingType_UniformBuffer,
 
                 .has_dynamic_offset = false,
@@ -109,7 +109,11 @@ pub const Optimized = struct {
         return out;
     }
 
-    pub fn rebuild_bind_group(self: *Self, uniform_buf: c.WGPUBufferId, tex_view: c.WGPUTextureViewId) void {
+    pub fn rebuild_bind_group(
+        self: *Self,
+        uniform_buf: c.WGPUBufferId,
+        tex_view: c.WGPUTextureViewId,
+    ) void {
         if (self.initialized) {
             c.wgpu_bind_group_destroy(self.bind_group);
         }

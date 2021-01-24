@@ -8,12 +8,15 @@ const Blit = @import("blit.zig").Blit;
 const Preview = @import("preview.zig").Preview;
 const Scene = @import("scene.zig").Scene;
 const Options = @import("options.zig").Options;
+const Optimized = @import("optimized.zig").Optimized;
 const Viewport = @import("viewport.zig").Viewport;
 
 pub const Renderer = struct {
     const Self = @This();
 
     initialized: bool = false,
+
+    alloc: *std.mem.Allocator,
 
     device: c.WGPUDeviceId,
     queue: c.WGPUQueueId,
@@ -26,6 +29,7 @@ pub const Renderer = struct {
 
     compiler: ?AsyncShaderc,
     preview: Preview,
+    optimized: ?Optimized,
     blit: Blit,
 
     uniforms: c.rayUniforms,
@@ -53,11 +57,14 @@ pub const Renderer = struct {
         );
 
         var out = Self{
+            .alloc = alloc,
+
             .device = device,
             .queue = c.wgpu_device_get_default_queue(device),
 
             .compiler = null,
             .preview = try Preview.init(alloc, scene, device, uniform_buf),
+            .optimized = null,
             .blit = undefined, // Built after resize()
             .scene = scene,
 
@@ -93,7 +100,7 @@ pub const Renderer = struct {
             return false;
         }
 
-        self.compiler = AsyncShaderc.init(scene);
+        self.compiler = AsyncShaderc.init(scene, self.device);
         try (self.compiler orelse unreachable).start();
 
         return true;
@@ -176,6 +183,15 @@ pub const Renderer = struct {
         if (changed) {
             try self.preview.upload_scene(self.scene);
             self.uniforms.samples = 0;
+            if (self.optimized) |*opt| {
+                opt.deinit();
+                self.optimized = null;
+            }
+            // This will tell us to ignore the compiler result, because
+            // the shader has changed while it was running.
+            if (self.compiler) |*comp| {
+                comp.cancelled = true;
+            }
         }
         return changed;
     }
@@ -188,9 +204,20 @@ pub const Renderer = struct {
     ) !void {
         // Check whether the compiler for a scene-specific shader has finished
         if (self.compiler) |*comp| {
-            if (comp.check()) |out| {
-                std.debug.print("Got spirv {}\n", .{out});
-                comp.alloc.free(out);
+            if (comp.check()) |frag_shader| {
+                defer c.wgpu_shader_module_destroy(frag_shader);
+                if (self.optimized) |*opt| {
+                    opt.deinit();
+                    self.optimized = null;
+                }
+                if (!comp.cancelled) {
+                    self.optimized = try Optimized.init(
+                        self.alloc,
+                        frag_shader,
+                        self.device,
+                        self.uniform_buf,
+                    );
+                }
                 comp.deinit();
                 self.compiler = null;
             }
@@ -210,7 +237,13 @@ pub const Renderer = struct {
         }
 
         // Cast another set of rays, one per pixel
-        try self.preview.draw(self.uniforms.samples == 0, self.tex_view, cmd_encoder);
+        const first = self.uniforms.samples == 0;
+        if (self.optimized) |*opt| {
+            try opt.draw(first, self.tex_view, cmd_encoder);
+        } else {
+            try self.preview.draw(first, self.tex_view, cmd_encoder);
+        }
+
         self.uniforms.samples += self.uniforms.samples_per_frame;
         self.frame += 1;
 
@@ -258,6 +291,9 @@ pub const Renderer = struct {
     pub fn deinit(self: *Self) void {
         self.blit.deinit();
         self.preview.deinit();
+        if (self.optimized) |*opt| {
+            opt.deinit();
+        }
         self.scene.deinit();
         self.destroy_textures();
         c.wgpu_buffer_destroy(self.uniform_buf, true);

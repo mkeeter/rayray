@@ -3,34 +3,17 @@ const std = @import("std");
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
 
-const Scene = @import("scene.zig").Scene;
-
-// This struct runs a raytracing kernel which uses an encoded scene and
-// tape to evaluate generic scenes.  This is slower than compiling a
-// scene-specific kernel, but is much more efficient to update (because
-// you only need to modify the scene storage buffer).
-pub const Preview = struct {
+// This struct runs a raytracing kernel which uses a compiled scene.
+// Compiling the scene shader is slower to generate initially, but runs faster.
+pub const Optimized = struct {
     const Self = @This();
 
-    alloc: *std.mem.Allocator,
-    initialized: bool = false,
-
-    // GPU handles
-    device: c.WGPUDeviceId,
-    queue: c.WGPUQueueId,
-
     bind_group: c.WGPUBindGroupId,
-    bind_group_layout: c.WGPUBindGroupLayoutId,
-
-    uniform_buffer: c.WGPUBufferId, // owned by the parent Renderer
-    scene_buffer: c.WGPUBufferId,
-    scene_buffer_len: usize,
-
     render_pipeline: c.WGPURenderPipelineId,
 
     pub fn init(
         alloc: *std.mem.Allocator,
-        scene: Scene,
+        frag_shader: c.WGPUShaderModuleId,
         device: c.WGPUDeviceId,
         uniform_buf: c.WGPUBufferId,
     ) !Self {
@@ -38,10 +21,8 @@ pub const Preview = struct {
         const tmp_alloc: *std.mem.Allocator = &arena.allocator;
         defer arena.deinit();
 
-        // This is the only available queue right now
-        const queue = c.wgpu_device_get_default_queue(device);
-
-        // Build the shaders using shaderc
+        // Build the vertex shader using shaderc
+        // (TODO: this could be shared with preview.zig)
         const rt_vert_name = "shaders/raytrace.vert";
         const vert_spv = try shaderc.build_shader_from_file(tmp_alloc, rt_vert_name);
         const vert_shader = c.wgpu_device_create_shader_module(
@@ -54,18 +35,6 @@ pub const Preview = struct {
             },
         );
         defer c.wgpu_shader_module_destroy(vert_shader);
-        const rt_preview_name = "shaders/preview.frag";
-        const frag_spv = try shaderc.build_shader_from_file(tmp_alloc, rt_preview_name);
-        const frag_shader = c.wgpu_device_create_shader_module(
-            device,
-            &(c.WGPUShaderModuleDescriptor){
-                .label = rt_preview_name,
-                .bytes = frag_spv.ptr,
-                .length = frag_spv.len,
-                .flags = c.WGPUShaderFlags_VALIDATION,
-            },
-        );
-        defer c.wgpu_shader_module_destroy(frag_shader);
 
         ////////////////////////////////////////////////////////////////////////////
         // Bind groups
@@ -74,21 +43,6 @@ pub const Preview = struct {
                 .binding = 0,
                 .visibility = c.WGPUShaderStage_FRAGMENT,
                 .ty = c.WGPUBindingType_UniformBuffer,
-
-                .has_dynamic_offset = false,
-                .min_buffer_binding_size = 0,
-
-                .multisampled = undefined,
-                .filtering = undefined,
-                .view_dimension = undefined,
-                .texture_component_type = undefined,
-                .storage_texture_format = undefined,
-                .count = undefined,
-            },
-            (c.WGPUBindGroupLayoutEntry){ // Scene buffer
-                .binding = 1,
-                .visibility = c.WGPUShaderStage_FRAGMENT,
-                .ty = c.WGPUBindingType_StorageBuffer,
 
                 .has_dynamic_offset = false,
                 .min_buffer_binding_size = 0,
@@ -109,7 +63,30 @@ pub const Preview = struct {
                 .entries_length = bind_group_layout_entries.len,
             },
         );
+        defer c.wgpu_bind_group_layout_destroy(bind_group_layout);
         const bind_group_layouts = [_]c.WGPUBindGroupId{bind_group_layout};
+
+        // Rebuild the bind group as well
+        const bind_group_entries = [_]c.WGPUBindGroupEntry{
+            (c.WGPUBindGroupEntry){
+                .binding = 0,
+                .buffer = uniform_buf,
+                .offset = 0,
+                .size = @sizeOf(c.rayUniforms),
+
+                .sampler = 0, // None
+                .texture_view = 0, // None
+            },
+        };
+        const bind_group = c.wgpu_device_create_bind_group(
+            device,
+            &(c.WGPUBindGroupDescriptor){
+                .label = "bind group",
+                .layout = bind_group_layout,
+                .entries = &bind_group_entries,
+                .entries_length = bind_group_entries.len,
+            },
+        );
 
         ////////////////////////////////////////////////////////////////////////
         // Render pipelines
@@ -175,95 +152,15 @@ pub const Preview = struct {
 
         ////////////////////////////////////////////////////////////////////////
         var out = Self{
-            .alloc = alloc,
-
-            .device = device,
-            .queue = queue,
-
-            .bind_group = undefined, // assigned in upload_scene() below
-            .bind_group_layout = bind_group_layout,
-            .scene_buffer = undefined, // assigned in upload_scene() below
-            .scene_buffer_len = 0,
-            .uniform_buffer = uniform_buf,
-
+            .bind_group = bind_group,
             .render_pipeline = render_pipeline,
         };
-        try out.upload_scene(scene);
-        out.initialized = true;
         return out;
     }
 
     pub fn deinit(self: *Self) void {
         c.wgpu_bind_group_destroy(self.bind_group);
-        c.wgpu_bind_group_layout_destroy(self.bind_group_layout);
-        c.wgpu_buffer_destroy(self.scene_buffer, true);
-
         c.wgpu_render_pipeline_destroy(self.render_pipeline);
-    }
-
-    // Copies the scene from self.scene to the GPU, rebuilding the bind
-    // group if the buffer has been resized (which would invalidate it)
-    pub fn upload_scene(self: *Self, scene: Scene) !void {
-        const encoded = try scene.encode();
-        defer self.alloc.free(encoded);
-
-        const scene_buffer_len = encoded.len * @sizeOf(c.vec4);
-
-        if (scene_buffer_len > self.scene_buffer_len) {
-            if (self.initialized) {
-                c.wgpu_buffer_destroy(self.scene_buffer, true);
-                c.wgpu_bind_group_destroy(self.bind_group);
-            }
-            self.scene_buffer = c.wgpu_device_create_buffer(
-                self.device,
-                &(c.WGPUBufferDescriptor){
-                    .label = "raytrace scene",
-                    .size = scene_buffer_len,
-                    .usage = c.WGPUBufferUsage_STORAGE | c.WGPUBufferUsage_COPY_DST,
-                    .mapped_at_creation = false,
-                },
-            );
-            self.scene_buffer_len = scene_buffer_len;
-
-            // Rebuild the bind group as well
-            const bind_group_entries = [_]c.WGPUBindGroupEntry{
-                (c.WGPUBindGroupEntry){
-                    .binding = 0,
-                    .buffer = self.uniform_buffer,
-                    .offset = 0,
-                    .size = @sizeOf(c.rayUniforms),
-
-                    .sampler = 0, // None
-                    .texture_view = 0, // None
-                },
-                (c.WGPUBindGroupEntry){
-                    .binding = 1,
-                    .buffer = self.scene_buffer,
-                    .offset = 0,
-                    .size = self.scene_buffer_len,
-
-                    .sampler = 0, // None
-                    .texture_view = 0, // None
-                },
-            };
-            self.bind_group = c.wgpu_device_create_bind_group(
-                self.device,
-                &(c.WGPUBindGroupDescriptor){
-                    .label = "bind group",
-                    .layout = self.bind_group_layout,
-                    .entries = &bind_group_entries,
-                    .entries_length = bind_group_entries.len,
-                },
-            );
-        }
-
-        c.wgpu_queue_write_buffer(
-            self.queue,
-            self.scene_buffer,
-            0,
-            @ptrCast([*c]const u8, encoded.ptr),
-            encoded.len * @sizeOf(c.vec4),
-        );
     }
 
     pub fn draw(
@@ -297,7 +194,7 @@ pub const Preview = struct {
         const rpass = c.wgpu_command_encoder_begin_render_pass(
             cmd_encoder,
             &(c.WGPURenderPassDescriptor){
-                .label = "preview render pass",
+                .label = "optimized render pass",
                 .color_attachments = &color_attachments,
                 .color_attachments_length = color_attachments.len,
                 .depth_stencil_attachment = null,

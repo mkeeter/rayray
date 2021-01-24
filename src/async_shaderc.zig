@@ -11,12 +11,13 @@ pub const AsyncShaderc = struct {
 
     mutex: std.Mutex,
     thread: *std.Thread,
+    cancelled: bool,
 
+    device: c.WGPUDeviceId,
     scene: Scene,
-    out: ?[]u32,
+    out: ?c.WGPUShaderModuleId,
 
-    pub fn init(scene: Scene) Self {
-        std.debug.print("Initialized async_shaderc\n", .{});
+    pub fn init(scene: Scene, device: c.WGPUDeviceId) Self {
         return Self{
             .alloc = scene.alloc,
 
@@ -24,12 +25,13 @@ pub const AsyncShaderc = struct {
             .thread = undefined, // defined in start()
 
             .scene = scene,
+            .device = device,
             .out = null,
+            .cancelled = false,
         };
     }
 
     pub fn deinit(self: *Self) void {
-        std.debug.print("destroying async_shaderc\n", .{});
         self.thread.wait();
         self.scene.deinit();
     }
@@ -39,28 +41,39 @@ pub const AsyncShaderc = struct {
     }
 
     fn run(self: *Self) void {
-        std.debug.print("shaderc thread running\n", .{});
         const txt = self.scene.trace_glsl() catch |err| {
             std.debug.panic("Failed to generate GLSL: {}\n", .{err});
         };
         defer self.alloc.free(txt);
-        const out = shaderc.build_shader(self.alloc, "rt", txt) catch |err| {
+        const frag_spv = shaderc.build_shader(self.alloc, "rt", txt) catch |err| {
             std.debug.panic("Failed to build shader: {}\n", .{err});
         };
+        defer self.alloc.free(frag_spv);
+
+        // The fragment shader is pre-compiled in a separate thread, because
+        // it could take a while.
+        const frag_shader = c.wgpu_device_create_shader_module(
+            self.device,
+            &(c.WGPUShaderModuleDescriptor){
+                .label = "compiled frag shader",
+                .bytes = frag_spv.ptr,
+                .length = frag_spv.len,
+                .flags = c.WGPUShaderFlags_VALIDATION,
+            },
+        );
+
         const lock = self.mutex.acquire();
         defer lock.release();
-        self.out = out;
-        std.debug.print("shaderc thread done\n", .{});
+        self.out = frag_shader;
     }
 
-    pub fn check(self: *Self) ?[]u32 {
+    pub fn check(self: *Self) ?c.WGPUShaderModuleId {
         const lock = self.mutex.acquire();
         defer lock.release();
 
         // Steal the value from out
         const out = self.out;
         if (out != null) {
-            std.debug.print("got output in check()\n", .{});
             self.out = null;
         }
 

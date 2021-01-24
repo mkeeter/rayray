@@ -101,7 +101,7 @@ pub const Window = struct {
         _ = c.glfwSetWindowUserPointer(window, out);
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
 
-        const scene = try Scene.new_simple_scene(alloc);
+        const scene = try Scene.new_cornell_box(alloc);
         out.* = .{
             .alloc = alloc,
             .window = window,
@@ -116,6 +116,10 @@ pub const Window = struct {
             .show_gui_demo = false,
         };
         out.resize_swap_chain(options.width, options.height);
+
+        // Trigger a compilation of an optimized shader immediately
+        try out.debounce.update(0);
+
         return out;
     }
 
@@ -179,6 +183,7 @@ pub const Window = struct {
                     self.renderer.deinit();
                     const scene = try f(self.alloc);
                     self.renderer = try Renderer.init(self.alloc, scene, options, self.device);
+                    try self.debounce.update(0); // Trigger optimized shader compilation
                 }
                 c.igEndMenu();
             }
@@ -204,7 +209,7 @@ pub const Window = struct {
         // timer to build the optimized shader once things stop changing
         if (self.show_editor) {
             if (try self.renderer.draw_gui(menu_height, &menu_width)) {
-                try self.debounce.update(100);
+                try self.debounce.update(1000);
             }
         }
 

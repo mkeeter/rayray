@@ -467,8 +467,8 @@ pub const Scene = struct {
 
         var out = try std.fmt.allocPrint(tmp_alloc,
             \\#version 440
-            \\#pragma shader_stage(fragment)
-            \\#include "shaders/rt_core.frag"
+            \\#pragma shader_stage(compute)
+            \\#include "shaders/rt_core.comp"
             \\
             \\bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color)
             \\{{

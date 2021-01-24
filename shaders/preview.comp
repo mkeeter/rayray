@@ -1,8 +1,8 @@
 #version 440
-#pragma shader_stage(fragment)
-#include "shaders/rt_core.frag"
+#pragma shader_stage(compute)
+#include "shaders/rt_core.comp"
 
-layout(set=0, binding=1) buffer Scene {
+layout(set=0, binding=2) buffer Scene {
     vec4[] scene_data;
 };
 

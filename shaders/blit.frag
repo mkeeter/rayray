@@ -14,5 +14,6 @@ layout(location=0) out vec4 out_color;
 
 void main() {
     float scale = 1.0 / (u.samples + u.samples_per_frame);
-    out_color = sqrt(scale * texture(sampler2D(raytrace_tex, raytrace_sampler), v_tex_coords));
+    //out_color = sqrt(scale * texture(sampler2D(raytrace_tex, raytrace_sampler), v_tex_coords));
+    out_color = texture(sampler2D(raytrace_tex, raytrace_sampler), v_tex_coords);
 }

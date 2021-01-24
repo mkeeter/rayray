@@ -1,6 +1,6 @@
 #include "extern/rayray.h"
 
-// This is the core of raytracing, specialized by defining trace() and mat()
+// This is the core of raytracing, specialized by defining trace()
 // It is used by both the preview kernel (which uses an scene encoded in
 // a storage buffer) and the optimized kernel (which compiles the scene
 // representation into GLSL).
@@ -8,7 +8,10 @@
 layout(set=0, binding=0, std430) uniform Uniforms {
     rayUniforms u;
 };
-layout(location=0) out vec4 fragColor;
+layout(set=0, binding=1, rgba32f) uniform writeonly image2D out_image;
+
+// Compute kernel dispatch size
+layout(local_size_x=16, local_size_y=4, local_size_z=1) in;
 
 #define SURFACE_EPSILON 1e-6
 #define NORMAL_EPSILON  1e-8
@@ -222,9 +225,9 @@ vec3 bounce(vec3 pos, vec3 dir, inout uint seed) {
 
 void main() {
     // Set up our random seed based on the frame and pixel position
-    uint seed = hash(hash(hash(u.samples) ^ floatBitsToUint(gl_FragCoord.x))
-                                          ^ floatBitsToUint(gl_FragCoord.y));
-    fragColor = vec4(0);
+    uint seed = hash(hash(hash(u.samples) ^ gl_GlobalInvocationID.x)
+                                          ^ gl_GlobalInvocationID.y);
+    vec4 fragColor = vec4(0);
 
     // This is the ray direction from the center of the camera,
     // without any bias due to perspective
@@ -243,7 +246,7 @@ void main() {
         float pixel_dy = rand(seed) - 0.5;
 
         // Pixel position as a normalized [-1,1] value, with antialiasing
-        vec2 pixel_xy = (gl_FragCoord.xy + vec2(pixel_dx, pixel_dy)) /
+        vec2 pixel_xy = (gl_GlobalInvocationID.xy + vec2(pixel_dx, pixel_dy)) /
                          vec2(u.width_px, u.height_px) * 2 - 1;
 
         // Calculate the offset from camera center for this pixel, in 3D space,
@@ -267,4 +270,5 @@ void main() {
         // Actually do the raytracing here, accumulating color
         fragColor += vec4(bounce(start, dir, seed), 1);
     }
+    imageStore(out_image, ivec2(gl_GlobalInvocationID.xy), fragColor);
 }

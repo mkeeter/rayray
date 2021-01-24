@@ -44,27 +44,28 @@ pub const AsyncShaderc = struct {
         const txt = self.scene.trace_glsl() catch |err| {
             std.debug.panic("Failed to generate GLSL: {}\n", .{err});
         };
+        std.debug.print("Compiling {s}\n", .{txt});
         defer self.alloc.free(txt);
-        const frag_spv = shaderc.build_shader(self.alloc, "rt", txt) catch |err| {
+        const comp_spv = shaderc.build_shader(self.alloc, "rt", txt) catch |err| {
             std.debug.panic("Failed to build shader: {}\n", .{err});
         };
-        defer self.alloc.free(frag_spv);
+        defer self.alloc.free(comp_spv);
 
         // The fragment shader is pre-compiled in a separate thread, because
         // it could take a while.
-        const frag_shader = c.wgpu_device_create_shader_module(
+        const comp_shader = c.wgpu_device_create_shader_module(
             self.device,
             &(c.WGPUShaderModuleDescriptor){
-                .label = "compiled frag shader",
-                .bytes = frag_spv.ptr,
-                .length = frag_spv.len,
+                .label = "compiled comp shader",
+                .bytes = comp_spv.ptr,
+                .length = comp_spv.len,
                 .flags = c.WGPUShaderFlags_VALIDATION,
             },
         );
 
         const lock = self.mutex.acquire();
         defer lock.release();
-        self.out = frag_shader;
+        self.out = comp_shader;
     }
 
     pub fn check(self: *Self) ?c.WGPUShaderModuleId {

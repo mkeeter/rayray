@@ -63,7 +63,7 @@ pub const Renderer = struct {
             .queue = c.wgpu_device_get_default_queue(device),
 
             .compiler = null,
-            .preview = try Preview.init(alloc, scene, device, uniform_buf),
+            .preview = undefined, // Built after resize()
             .optimized = null,
             .blit = undefined, // Built after resize()
             .scene = scene,
@@ -89,6 +89,7 @@ pub const Renderer = struct {
         };
         out.update_size(options.width, options.height);
         out.blit = try Blit.init(alloc, device, out.tex_view, uniform_buf);
+        out.preview = try Preview.init(alloc, scene, device, uniform_buf, out.tex_view);
         out.initialized = true;
 
         return out;
@@ -216,6 +217,7 @@ pub const Renderer = struct {
                         frag_shader,
                         self.device,
                         self.uniform_buf,
+                        self.tex_view,
                     );
                 }
                 comp.deinit();
@@ -238,10 +240,21 @@ pub const Renderer = struct {
 
         // Cast another set of rays, one per pixel
         const first = self.uniforms.samples == 0;
+
         if (self.optimized) |*opt| {
-            try opt.draw(first, self.tex_view, cmd_encoder);
+            try opt.render(
+                first,
+                self.uniforms.width_px,
+                self.uniforms.height_px,
+                cmd_encoder,
+            );
         } else {
-            try self.preview.draw(first, self.tex_view, cmd_encoder);
+            try self.preview.render(
+                first,
+                self.uniforms.width_px,
+                self.uniforms.height_px,
+                cmd_encoder,
+            );
         }
 
         self.uniforms.samples += self.uniforms.samples_per_frame;
@@ -323,8 +336,8 @@ pub const Renderer = struct {
 
                 // We render to this texture, then use it as a source when
                 // blitting into the final UI image
-                .usage = (c.WGPUTextureUsage_RENDER_ATTACHMENT |
-                    c.WGPUTextureUsage_SAMPLED),
+                .usage = (c.WGPUTextureUsage_SAMPLED |
+                    c.WGPUTextureUsage_STORAGE),
                 .label = "raytrace_tex",
             },
         );
@@ -350,6 +363,10 @@ pub const Renderer = struct {
 
         if (self.initialized) {
             self.blit.bind(self.tex_view, self.uniform_buf);
+            self.preview.bind(self.tex_view);
+            if (self.optimized) |*opt| {
+                opt.rebuild_bind_group(self.uniform_buf, self.tex_view);
+            }
         }
     }
 };

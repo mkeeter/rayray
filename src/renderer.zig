@@ -240,22 +240,13 @@ pub const Renderer = struct {
 
         // Cast another set of rays, one per pixel
         const first = self.uniforms.samples == 0;
-
-        if (self.optimized) |*opt| {
-            try opt.render(
-                first,
-                self.uniforms.width_px,
-                self.uniforms.height_px,
-                cmd_encoder,
-            );
-        } else {
-            try self.preview.render(
-                first,
-                self.uniforms.width_px,
-                self.uniforms.height_px,
-                cmd_encoder,
-            );
-        }
+        const nx = (self.uniforms.width_px + c.COMPUTE_X_SIZE - 1) / c.COMPUTE_X_SIZE;
+        const ny = (self.uniforms.height_px + c.COMPUTE_Y_SIZE - 1) / c.COMPUTE_Y_SIZE;
+        //if (self.optimized) |*opt| {
+        //try opt.render(first, nx, ny, cmd_encoder);
+        //} else {
+        try self.preview.render(first, nx, ny, cmd_encoder);
+        //}
 
         self.uniforms.samples += self.uniforms.samples_per_frame;
         self.frame += 1;

@@ -259,8 +259,8 @@ pub const Preview = struct {
     pub fn render(
         self: *Self,
         first: bool,
-        width: u32,
-        height: u32,
+        nx: u32,
+        ny: u32,
         cmd_encoder: c.WGPUCommandEncoderId,
     ) !void {
         const cpass = c.wgpu_command_encoder_begin_compute_pass(
@@ -270,7 +270,7 @@ pub const Preview = struct {
 
         c.wgpu_compute_pass_set_pipeline(cpass, self.compute_pipeline);
         c.wgpu_compute_pass_set_bind_group(cpass, 0, self.bind_group, null, 0);
-        c.wgpu_compute_pass_dispatch(cpass, width / 16, height / 4, 1);
+        c.wgpu_compute_pass_dispatch(cpass, nx, ny, 1);
         c.wgpu_compute_pass_end_pass(cpass);
     }
 };

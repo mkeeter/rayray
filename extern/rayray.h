@@ -20,6 +20,9 @@ typedef struct {
 } vec4;
 #endif
 
+#define COMPUTE_X_SIZE 16
+#define COMPUTE_Y_SIZE 16
+
 #define SHAPE_NONE 0
 #define SHAPE_SPHERE 1
 #define SHAPE_INFINITE_PLANE 2

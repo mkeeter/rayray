@@ -11,7 +11,7 @@ layout(set=0, binding=0, std430) uniform Uniforms {
 layout(set=0, binding=1, rgba32f) uniform writeonly image2D out_image;
 
 // Compute kernel dispatch size
-layout(local_size_x=16, local_size_y=4, local_size_z=1) in;
+layout(local_size_x=COMPUTE_X_SIZE, local_size_y=COMPUTE_Y_SIZE) in;
 
 #define SURFACE_EPSILON 1e-6
 #define NORMAL_EPSILON  1e-8

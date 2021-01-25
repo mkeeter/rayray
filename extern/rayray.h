@@ -26,7 +26,8 @@ typedef struct {
 #define SHAPE_NONE 0
 #define SHAPE_SPHERE 1
 #define SHAPE_INFINITE_PLANE 2
-#define LAST_SHAPE 3
+#define SHAPE_FINITE_PLANE 3
+#define LAST_SHAPE 4
 
 #define MAT_NONE 0
 #define MAT_DIFFUSE 1

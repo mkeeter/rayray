@@ -621,6 +621,14 @@ pub const Scene = struct {
             \\            }};
             \\            norm = norm_plane(data[key.y]);
             \\            break;
+            \\        case SHAPE_FINITE_PLANE: {{
+            \\            // Plane normals
+            \\            const vec3 data[] = {{
+            \\                vec3(0), // Dummy{s}
+            \\            }};
+            \\            norm = norm_plane(data[key.y]);
+            \\            break;
+            \\        }}
             \\        }}
             \\    }}
             \\

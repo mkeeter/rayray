@@ -78,8 +78,13 @@ pub const Renderer = struct {
                 .width_px = undefined,
                 .height_px = undefined,
 
+                .offset_x = 0,
+                .offset_y = 0,
+
                 .samples = 0,
                 .samples_per_frame = options.samples_per_frame,
+
+                ._padding = undefined,
 
                 .camera = scene.camera,
             },
@@ -246,6 +251,8 @@ pub const Renderer = struct {
         if (width != self.uniforms.width_px or height != self.uniforms.height_px) {
             self.update_size(width, height);
         }
+        self.uniforms.offset_x = @floatToInt(u32, viewport.x);
+        self.uniforms.offset_y = @floatToInt(u32, viewport.y);
 
         self.update_uniforms();
 

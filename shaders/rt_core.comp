@@ -232,9 +232,6 @@ void main() {
     // Set up our random seed based on the frame and pixel position
     uint seed = hash(hash(u.samples) ^ gl_GlobalInvocationID.x);
     vec4 fragColor = vec4(0);
-    if (u.samples > 0) {
-        fragColor = image[gl_GlobalInvocationID.x];
-    }
 
     // This is the ray direction from the center of the camera,
     // without any bias due to perspective
@@ -277,5 +274,10 @@ void main() {
         // Actually do the raytracing here, accumulating color
         fragColor += vec4(bounce(start, dir, seed), 1);
     }
-    image[gl_GlobalInvocationID.x] = fragColor;
+
+    if (u.samples > 0) {
+        image[gl_GlobalInvocationID.x] += fragColor;
+    } else {
+        image[gl_GlobalInvocationID.x] = fragColor;
+    }
 }

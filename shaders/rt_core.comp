@@ -267,8 +267,8 @@ void main() {
 
     for (uint i=0; i < u.samples_per_frame; ++i) {
         // Add anti-aliasing by jittering within the pixel
-        float pixel_dx = rand(seed) - 0.5;
-        float pixel_dy = rand(seed) - 0.5;
+        float pixel_dx = rand(seed) / 2;
+        float pixel_dy = rand(seed) / 2;
 
         // Pixel position as a normalized [-1,1] value, with antialiasing
         vec2 pixel_xy = (p + vec2(pixel_dx, pixel_dy)) /

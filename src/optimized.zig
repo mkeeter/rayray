@@ -25,10 +25,6 @@ pub const Optimized = struct {
         image_buf: c.WGPUTextureViewId,
         image_buf_size: u32,
     ) !Self {
-        var arena = std.heap.ArenaAllocator.init(alloc);
-        const tmp_alloc: *std.mem.Allocator = &arena.allocator;
-        defer arena.deinit();
-
         ////////////////////////////////////////////////////////////////////////////
         // Bind groups
         const bind_group_layout_entries = [_]c.WGPUBindGroupLayoutEntry{

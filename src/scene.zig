@@ -589,10 +589,10 @@ pub const Scene = struct {
                     \\{s}
                     \\                vec3({}, {}, {}),
                 , .{ plane_data, s.normal.x, s.normal.y, s.normal.z }),
-                .FinitePlane => |s| plane_data = try std.fmt.allocPrint(tmp_alloc,
+                .FinitePlane => |s| finite_plane_data = try std.fmt.allocPrint(tmp_alloc,
                     \\{s}
                     \\                vec3({}, {}, {}),
-                , .{ plane_data, s.normal.x, s.normal.y, s.normal.z }),
+                , .{ finite_plane_data, s.normal.x, s.normal.y, s.normal.z }),
             }
         }
 

@@ -116,11 +116,10 @@ float hit_plane(vec3 start, vec3 dir, vec3 norm, float off) {
 
 float hit_finite_plane(vec3 start, vec3 dir, vec3 norm, float off,
                        vec3 q, vec4 bounds) {
-    // dot(norm, pos) == off
-    // dot(norm, start + n*dir) == off
-    // dot(norm, start) + dot(norm, n*dir) == off
-    // dot(norm, start) + n*dot(norm, dir) == off
-    float d = (off - dot(norm, start)) / dot(norm, dir);
+    float d = hit_plane(start, dir, norm, off);
+    if (d <= SURFACE_EPSILON) {
+        return d;
+    }
     vec3 p = start + d * dir; // Position on plane
     vec3 center = norm * off; // Center of plane, from which bounds are measured
 
@@ -128,7 +127,7 @@ float hit_finite_plane(vec3 start, vec3 dir, vec3 norm, float off,
     if (dist_q < bounds.x || dist_q > bounds.y) {
         return -1;
     }
-    vec3 r = cross(dir, q);
+    vec3 r = cross(norm, q);
     float dist_r = dot(p - center, r);
     if (dist_r < bounds.z || dist_r > bounds.w) {
         return -1;

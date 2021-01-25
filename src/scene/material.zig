@@ -91,7 +91,7 @@ pub const Glass = struct {
     }
     fn draw_gui(self: *Self) bool {
         const a = c.igColorEdit3("", @ptrCast([*c]f32, &self.color), 0);
-        c.igPushItemWidth(c.igGetWindowWidth() * 0.6);
+        c.igPushItemWidth(c.igGetWindowWidth() * 0.4);
         const b = c.igDragFloat("eta", &self.eta, 0.01, 1, 2, "%.2f", 0);
         c.igPopItemWidth();
         return a or b;

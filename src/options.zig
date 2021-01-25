@@ -18,7 +18,7 @@ pub const Options = struct {
             .width = 600,
             .height = 600,
         };
-        var i: usize = 0;
+        var i: usize = 1;
         while (i < args.len) : (i += 1) {
             if (std.mem.eql(u8, args[i], "-h")) {
                 try print_help();
@@ -36,6 +36,9 @@ pub const Options = struct {
                         std.process.exit(1);
                     }
                 }
+            } else {
+                std.debug.print("Unknown option: {s}", .{args[i]});
+                std.process.exit(1);
             }
         }
 

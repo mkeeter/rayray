@@ -39,6 +39,11 @@ pub const Renderer = struct {
     start_time_ms: i64,
     frame: u64,
 
+    // We render continuously, but reset stats after the optimized renderer
+    // is built to get a fair performance metric
+    opt_time_ms: i64,
+    opt_offset_samples: u32,
+
     pub fn init(
         alloc: *std.mem.Allocator,
         scene: Scene,
@@ -92,6 +97,9 @@ pub const Renderer = struct {
 
             .start_time_ms = 0,
             .frame = 0,
+
+            .opt_time_ms = 0,
+            .opt_offset_samples = 0,
         };
 
         out.update_size(options.width, options.height);
@@ -240,6 +248,8 @@ pub const Renderer = struct {
                         self.image_buf,
                         self.image_buf_size,
                     );
+                    self.opt_time_ms = std.time.milliTimestamp();
+                    self.opt_offset_samples = self.uniforms.samples;
                 }
                 comp.deinit();
                 self.compiler = null;
@@ -293,11 +303,16 @@ pub const Renderer = struct {
     }
 
     pub fn stats(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
+        var samples = self.uniforms.samples;
+        if (self.optimized != null) {
+            samples -= self.opt_offset_samples;
+        }
+        var start_time_ms = if (self.optimized == null) self.start_time_ms else self.opt_time_ms;
         var ray_count = @intToFloat(f64, self.uniforms.width_px) *
             @intToFloat(f64, self.uniforms.height_px) *
             @intToFloat(f64, self.uniforms.samples);
 
-        const dt_sec = @intToFloat(f64, std.time.milliTimestamp() - self.start_time_ms) / 1000.0;
+        const dt_sec = @intToFloat(f64, std.time.milliTimestamp() - start_time_ms) / 1000.0;
 
         var rays_per_sec = ray_count / dt_sec;
         var rays_per_sec_prefix = prefix(&rays_per_sec);
@@ -352,6 +367,8 @@ pub const Renderer = struct {
             self.preview.bind(self.image_buf, self.image_buf_size);
             if (self.optimized) |*opt| {
                 opt.rebuild_bind_group(self.uniform_buf, self.image_buf, self.image_buf_size);
+                self.opt_time_ms = self.start_time_ms;
+                self.opt_offset_samples = 0;
             }
         }
     }

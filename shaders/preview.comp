@@ -33,8 +33,8 @@ bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color) {
             case SHAPE_FINITE_PLANE: {
                 vec4 d = scene_data[offset];
                 vec4 q = scene_data[offset + 1];
-                vec4 size = scene_data[offset + 2];
-                dist = hit_finite_plane(pos, dir, d.xyz, d.w, q.xyz, size.xy, size.zw);
+                vec4 bounds = scene_data[offset + 2];
+                dist = hit_finite_plane(pos, dir, d.xyz, d.w, q.xyz, bounds);
                 break;
             }
             default: // unimplemented shape

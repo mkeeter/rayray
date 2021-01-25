@@ -489,6 +489,17 @@ pub const Scene = struct {
                     "hit_plane(pos, dir,  vec3({}, {}, {}), {})",
                     .{ s.normal.x, s.normal.y, s.normal.z, s.offset },
                 ),
+                .FinitePlane => |s| std.fmt.allocPrint(
+                    tmp_alloc,
+                    \\hit_finite_plane(pos, dir,  vec3({}, {}, {}), {},
+                    \\                 vec3({}, {}, {}), vec4({}, {}, {}, {}))
+                ,
+                    .{
+                        s.normal.x, s.normal.y, s.normal.z, s.offset,
+                        s.q.x,      s.q.y,      s.q.z,      s.bounds.x,
+                        s.bounds.y, s.bounds.z, s.bounds.w,
+                    },
+                ),
             };
 
             out = try std.fmt.allocPrint(
@@ -561,6 +572,7 @@ pub const Scene = struct {
 
         var sphere_data: []u8 = "";
         var plane_data: []u8 = "";
+        var finite_plane_data: []u8 = "";
 
         var diffuse_data: []u8 = "";
         var light_data: []u8 = "";
@@ -574,6 +586,10 @@ pub const Scene = struct {
                     \\                vec3({}, {}, {}),
                 , .{ sphere_data, s.center.x, s.center.y, s.center.z }),
                 .InfinitePlane => |s| plane_data = try std.fmt.allocPrint(tmp_alloc,
+                    \\{s}
+                    \\                vec3({}, {}, {}),
+                , .{ plane_data, s.normal.x, s.normal.y, s.normal.z }),
+                .FinitePlane => |s| plane_data = try std.fmt.allocPrint(tmp_alloc,
                     \\{s}
                     \\                vec3({}, {}, {}),
                 , .{ plane_data, s.normal.x, s.normal.y, s.normal.z }),
@@ -621,6 +637,7 @@ pub const Scene = struct {
             \\            }};
             \\            norm = norm_plane(data[key.y]);
             \\            break;
+            \\        }}
             \\        case SHAPE_FINITE_PLANE: {{
             \\            // Plane normals
             \\            const vec3 data[] = {{
@@ -628,7 +645,6 @@ pub const Scene = struct {
             \\            }};
             \\            norm = norm_plane(data[key.y]);
             \\            break;
-            \\        }}
             \\        }}
             \\    }}
             \\
@@ -668,7 +684,16 @@ pub const Scene = struct {
             \\    color = vec3(0, 1, 0);
             \\    return true;
             \\}}
-        , .{ out, sphere_data, plane_data, diffuse_data, light_data, metal_data, glass_data });
+        , .{
+            out,
+            sphere_data,
+            plane_data,
+            finite_plane_data,
+            diffuse_data,
+            light_data,
+            metal_data,
+            glass_data,
+        });
 
         // Dupe to the standard allocator, so it won't be freed
         return self.alloc.dupe(u8, out);

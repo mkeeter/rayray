@@ -48,6 +48,14 @@ pub const Shape = struct {
                         .offset = 0,
                     },
                 },
+                .FinitePlane => self.prim = .{
+                    .FinitePlane = .{
+                        .normal = .{ .x = 0, .y = 0, .z = 1 },
+                        .offset = 0,
+                        .q = .{ .x = 1, .y = 0, .z = 0 },
+                        .bounds = .{ .x = -1, .y = 1, .z = -1, .w = 1 },
+                    },
+                },
             }
         }
         var mat: c_int = @intCast(c_int, self.mat);
@@ -59,9 +67,5 @@ pub const Shape = struct {
         changed = self.prim.draw_gui() or changed;
         c.igPopItemWidth();
         return changed;
-    }
-
-    pub fn norm_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return self.prim.norm_glsl(alloc);
     }
 };

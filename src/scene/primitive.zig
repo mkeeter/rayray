@@ -21,14 +21,6 @@ pub const Sphere = struct {
         changed = c.igDragFloat("radius", &self.radius, 0.01, 0, 10, "%.2f", 0) or changed;
         return changed;
     }
-
-    pub fn norm_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return std.fmt.allocPrint(
-            alloc,
-            "center = vec3({}, {}, {})",
-            .{ self.center.x, self.center.y, self.center.z },
-        );
-    }
 };
 
 pub const InfinitePlane = struct {
@@ -51,13 +43,44 @@ pub const InfinitePlane = struct {
         changed = c.igDragFloat("offset", &self.offset, 0.01, -10, 10, "%.2f", 0) or changed;
         return changed;
     }
+};
 
-    pub fn norm_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return std.fmt.allocPrint(
-            alloc,
-            "norm = vec3({}, {}, {})",
-            .{ self.normal.x, self.normal.y, self.normal.z },
-        );
+pub const FinitePlane = struct {
+    const Self = @This();
+
+    normal: c.vec3,
+    offset: f32,
+
+    q: c.vec3,
+    bounds: c.vec4,
+
+    fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
+        try buf.append(.{
+            .x = self.normal.x,
+            .y = self.normal.y,
+            .z = self.normal.z,
+            .w = self.offset,
+        });
+        try buf.append(.{
+            .x = self.q.x,
+            .y = self.q.y,
+            .z = self.q.z,
+            .w = -1,
+        });
+        try buf.append(.{
+            .x = self.bounds.x,
+            .y = self.bounds.y,
+            .z = self.bounds.z,
+            .w = self.bounds.w,
+        });
+    }
+
+    fn draw_gui(self: *Self) bool {
+        var changed = c.igDragFloat3("normal", @ptrCast([*c]f32, &self.normal), 0.01, -1, 1, "%.2f", 0);
+        changed = c.igDragFloat("offset", &self.offset, 0.05, -10, 10, "%.2f", 0) or changed;
+        changed = c.igDragFloat3("q", @ptrCast([*c]f32, &self.q), 0.01, -1, 1, "%.2f", 0) or changed;
+        changed = c.igDragFloat4("bounds", @ptrCast([*c]f32, &self.bounds), 0.05, -10, 10, "%.2f", 0) or changed;
+        return changed;
     }
 };
 
@@ -66,11 +89,13 @@ pub const Primitive = union(enum) {
 
     Sphere: Sphere,
     InfinitePlane: InfinitePlane,
+    FinitePlane: FinitePlane,
 
     pub fn tag(self: Self) u32 {
         return switch (self) {
             .Sphere => c.SHAPE_SPHERE,
             .InfinitePlane => c.SHAPE_INFINITE_PLANE,
+            .FinitePlane => c.SHAPE_FINITE_PLANE,
         };
     }
 
@@ -96,6 +121,7 @@ pub const Primitive = union(enum) {
         return switch (self) {
             .Sphere => |s| s.encode(buf),
             .InfinitePlane => |s| s.encode(buf),
+            .FinitePlane => |s| s.encode(buf),
         };
     }
 
@@ -103,13 +129,7 @@ pub const Primitive = union(enum) {
         return switch (self.*) {
             .Sphere => |*d| d.draw_gui(),
             .InfinitePlane => |*d| d.draw_gui(),
-        };
-    }
-
-    pub fn norm_glsl(self: *const Self, alloc: *std.mem.Allocator) ![]u8 {
-        return try switch (self.*) {
-            .Sphere => |d| d.norm_glsl(alloc),
-            .InfinitePlane => |d| d.norm_glsl(alloc),
+            .FinitePlane => |*d| d.draw_gui(),
         };
     }
 };

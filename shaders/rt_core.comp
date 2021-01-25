@@ -115,22 +115,22 @@ float hit_plane(vec3 start, vec3 dir, vec3 norm, float off) {
 }
 
 float hit_finite_plane(vec3 start, vec3 dir, vec3 norm, float off,
-                       vec3 q, vec2 dq, vec2 dr) {
+                       vec3 q, vec4 bounds) {
     // dot(norm, pos) == off
     // dot(norm, start + n*dir) == off
     // dot(norm, start) + dot(norm, n*dir) == off
     // dot(norm, start) + n*dot(norm, dir) == off
     float d = (off - dot(norm, start)) / dot(norm, dir);
     vec3 p = start + d * dir; // Position on plane
-    vec3 center = norm * off; // Center on plane, from which dq/dr are measured
+    vec3 center = norm * off; // Center of plane, from which bounds are measured
 
     float dist_q = dot(p - center, q);
-    if (dist_q < dq.x || dist_q > dq.y) {
+    if (dist_q < bounds.x || dist_q > bounds.y) {
         return -1;
     }
     vec3 r = cross(dir, q);
     float dist_r = dot(p - center, r);
-    if (dist_r < dr.x || dist_r > dr.y) {
+    if (dist_r < bounds.z || dist_r > bounds.w) {
         return -1;
     }
     return d;

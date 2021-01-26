@@ -11,6 +11,7 @@ const Options = @import("options.zig").Options;
 const Optimized = @import("optimized.zig").Optimized;
 const Viewport = @import("viewport.zig").Viewport;
 
+const FRAME_TIME_COUNT: u32 = 8;
 pub const Renderer = struct {
     const Self = @This();
 
@@ -37,7 +38,9 @@ pub const Renderer = struct {
     uniform_buf: c.WGPUBufferId,
 
     start_time_ms: i64,
-    frame: u64,
+    last_time_ms: i64,
+    frame_times_ms: [FRAME_TIME_COUNT]i32,
+    frame_time_index: u32,
 
     // We render continuously, but reset stats after the optimized renderer
     // is built to get a fair performance metric
@@ -96,7 +99,9 @@ pub const Renderer = struct {
             .uniform_buf = uniform_buf,
 
             .start_time_ms = 0,
-            .frame = 0,
+            .last_time_ms = 0,
+            .frame_times_ms = [_]i32{0} ** FRAME_TIME_COUNT,
+            .frame_time_index = 0,
 
             .opt_time_ms = 0,
             .opt_offset_samples = 0,
@@ -212,6 +217,9 @@ pub const Renderer = struct {
         if (changed) {
             try self.preview.upload_scene(self.scene);
             self.uniforms.samples = 0;
+            self.uniforms.samples_per_frame = 1;
+            self.frame_time_index = 0;
+
             if (self.optimized) |*opt| {
                 opt.deinit();
                 self.optimized = null;
@@ -266,11 +274,6 @@ pub const Renderer = struct {
 
         self.update_uniforms();
 
-        // Record the start time at the first frame, to skip startup time
-        if (self.uniforms.samples == 0) {
-            self.start_time_ms = std.time.milliTimestamp();
-        }
-
         // Cast another set of rays, one per pixel
         const first = self.uniforms.samples == 0;
         const n = self.uniforms.width_px * self.uniforms.height_px;
@@ -281,10 +284,47 @@ pub const Renderer = struct {
             try self.preview.render(first, nt, cmd_encoder);
         }
 
-        self.uniforms.samples += self.uniforms.samples_per_frame;
-        self.frame += 1;
-
         self.blit.draw(viewport, next_texture, cmd_encoder);
+        const now_ms = std.time.milliTimestamp();
+
+        // Record the start time at the first frame, to skip startup time
+        if (self.uniforms.samples == 0) {
+            self.start_time_ms = now_ms;
+        } else {
+            self.frame_times_ms[self.frame_time_index] = @intCast(i32, now_ms - self.last_time_ms);
+            self.frame_time_index = (self.frame_time_index + 1) % FRAME_TIME_COUNT;
+        }
+        self.last_time_ms = now_ms;
+        self.uniforms.samples += self.uniforms.samples_per_frame;
+
+        // Skew samples per frame based on average frame time
+        if (self.frame_time_index == 0) {
+            var t: i32 = 0;
+            for (self.frame_times_ms) |f| {
+                t += f;
+            }
+            t = @divFloor(t, FRAME_TIME_COUNT);
+            // When running normally, we expect a 16ms frame time.  We target
+            // a frame time of 20 ms, with 2 ms of hysteresis on either side,
+            // biased to count up quickly (since we reset to 1 when the scene
+            // changes)
+            const delta: i32 = switch (t) {
+                0...16 => 4,
+                17 => 2,
+                18...22 => 0,
+                else => -1,
+            };
+            if (delta != 0) {
+                const next = @intCast(i32, self.uniforms.samples_per_frame) + delta;
+                if (next >= 1) {
+                    self.uniforms.samples_per_frame = @intCast(u32, next);
+                } else {
+                    self.uniforms.samples_per_frame = 1;
+                }
+                self.frame_time_index = 0;
+            }
+        }
+        std.debug.print("{}\n", .{self.uniforms.samples_per_frame});
     }
 
     fn prefix(v: *f64) u8 {
@@ -359,6 +399,8 @@ pub const Renderer = struct {
         self.uniforms.width_px = width;
         self.uniforms.height_px = height;
         self.uniforms.samples = 0;
+        self.uniforms.samples_per_frame = 1;
+        self.frame_time_index = 0;
 
         self.start_time_ms = std.time.milliTimestamp();
 

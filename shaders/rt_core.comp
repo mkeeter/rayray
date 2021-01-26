@@ -37,12 +37,8 @@ uint32_t hash(uint key) {
     return h;
 }
 
-uint32_t hash_fast(uint rng_state) {
-    // Xorshift algorithm from George Marsaglia's paper
-    rng_state ^= (rng_state << 13);
-    rng_state ^= (rng_state >> 17);
-    rng_state ^= (rng_state << 5);
-    return rng_state;
+uint32_t hash_fast(uint seed) {
+    return 1664525 * seed + 1013904223;
 }
 
 // Returns a pseudorandom value between -1 and 1

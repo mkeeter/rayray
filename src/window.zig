@@ -134,12 +134,6 @@ pub const Window = struct {
         return c.glfwWindowShouldClose(self.window) != 0;
     }
 
-    pub fn set_callbacks(
-        self: *const Self,
-        size_cb: c.GLFWframebuffersizefun,
-        data: ?*c_void,
-    ) void {}
-
     fn draw(self: *Self) !void {
         if (self.debounce.check()) {
             // Try to kick off an async build of a scene-specific shader.

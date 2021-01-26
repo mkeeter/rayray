@@ -7,9 +7,10 @@ A tiny GPU raytracer!
 
 ## Features
 - Diffuse, metal, and glass materials
-- The only two shapes that matter:
+- The only three shapes that matter:
     - Spheres
     - Infinite planes
+    - Finite planes
 - Any shape can be a light!
 - Antialiasing with sub-pixel sampling
 - Will **crash your entire computer** if you render too many rays per frame

@@ -56,8 +56,8 @@ pub const Scene = struct {
             .{
                 .x = y - size.y / 2,
                 .y = y + size.y / 2,
-                .z = z - size.z / 2,
-                .w = z + size.z / 2,
+                .z = -z - size.z / 2,
+                .w = -z + size.z / 2,
             },
             mat,
         ));
@@ -68,8 +68,8 @@ pub const Scene = struct {
             .{
                 .x = x - size.x / 2,
                 .y = x + size.x / 2,
-                .z = z - size.z / 2,
-                .w = z + size.z / 2,
+                .z = -z - size.z / 2,
+                .w = -z + size.z / 2,
             },
             mat,
         ));
@@ -92,8 +92,8 @@ pub const Scene = struct {
             .{
                 .x = x - size.x / 2,
                 .y = x + size.x / 2,
-                .z = z - size.z / 2,
-                .w = z + size.z / 2,
+                .z = y - size.y / 2,
+                .w = y + size.y / 2,
             },
             mat,
         ));
@@ -104,8 +104,8 @@ pub const Scene = struct {
             .{
                 .x = x - size.x / 2,
                 .y = x + size.x / 2,
-                .z = y - size.y / 2,
-                .w = y + size.y / 2,
+                .z = -y - size.y / 2,
+                .w = -y + size.y / 2,
             },
             mat,
         ));
@@ -193,14 +193,14 @@ pub const Scene = struct {
         const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
         const red = try scene.new_material(Material.new_diffuse(1, 0.1, 0.1));
         const green = try scene.new_material(Material.new_diffuse(0.1, 1, 0.1));
-        const light = try scene.new_material(Material.new_light(1, 1, 1, 4));
+        const light = try scene.new_material(Material.new_light(1, 0.8, 0.6, 6));
 
         // Light
         try scene.shapes.append(Shape.new_finite_plane(
             .{ .x = 0, .y = 1, .z = 0 },
             1.04,
             .{ .x = 1, .y = 0, .z = 0 },
-            .{ .x = -0.3, .y = 0.3, .z = -0.3, .w = 0.3 },
+            .{ .x = -0.25, .y = 0.25, .z = -0.25, .w = 0.25 },
             light,
         ));
         // Back wall
@@ -233,18 +233,21 @@ pub const Scene = struct {
             -1,
             white,
         ));
-        // Front wall
-        try scene.shapes.append(Shape.new_infinite_plane(
-            .{ .x = 0, .y = 0, .z = -1 },
-            -1,
-            white,
-        ));
 
+        var h: f32 = 1.3;
         try scene.add_cube(
-            .{ .x = 0, .y = 0, .z = 0 },
+            .{ .x = -0.35, .y = -1 + h / 2, .z = -0.3 },
+            vec3.normalize(.{ .x = 0.4, .y = 0, .z = 1 }),
             vec3.normalize(.{ .x = 0, .y = 1, .z = 0 }),
-            vec3.normalize(.{ .x = 0, .y = 0, .z = 1 }),
-            .{ .x = 0.5, .y = 0.4, .z = 0.3 },
+            .{ .x = 0.6, .y = h, .z = 0.6 },
+            white,
+        );
+        h = 0.6;
+        try scene.add_cube(
+            .{ .x = 0.35, .y = -1 + h / 2, .z = 0.3 },
+            vec3.normalize(.{ .x = -0.4, .y = 0, .z = 1 }),
+            vec3.normalize(.{ .x = 0, .y = 1, .z = 0 }),
+            .{ .x = 0.55, .y = h, .z = 0.55 },
             white,
         );
         return scene;

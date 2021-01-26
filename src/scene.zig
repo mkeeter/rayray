@@ -99,7 +99,7 @@ pub const Scene = struct {
         return scene;
     }
 
-    pub fn new_cornell_box(alloc: *std.mem.Allocator) !Self {
+    pub fn new_cornell_balls(alloc: *std.mem.Allocator) !Self {
         var scene = new(alloc, default_camera());
         const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
         const red = try scene.new_material(Material.new_diffuse(1, 0.1, 0.1));

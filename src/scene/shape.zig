@@ -27,6 +27,13 @@ pub const Shape = struct {
         };
     }
 
+    pub fn new_finite_plane(normal: c.vec3, offset: f32, q: c.vec3, bounds: c.vec4, mat: u32) Self {
+        return Self{
+            .prim = Primitive.new_finite_plane(normal, offset, q, bounds),
+            .mat = mat,
+        };
+    }
+
     pub fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
         try self.prim.encode(buf);
     }

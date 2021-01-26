@@ -101,7 +101,7 @@ pub const Window = struct {
         _ = c.glfwSetWindowUserPointer(window, out);
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
 
-        const scene = try Scene.new_cornell_balls(alloc);
+        const scene = try Scene.new_cornell_box(alloc);
         out.* = .{
             .alloc = alloc,
             .window = window,
@@ -174,6 +174,9 @@ pub const Window = struct {
                 }
                 if (c.igMenuItemBool("Cornell Spheres", "", false, true)) {
                     new_scene_fn = Scene.new_cornell_balls;
+                }
+                if (c.igMenuItemBool("Cornell Box", "", false, true)) {
+                    new_scene_fn = Scene.new_cornell_box;
                 }
                 if (c.igMenuItemBool("Ray Tracing in One Weekend", "", false, true)) {
                     new_scene_fn = Scene.new_rtiow;

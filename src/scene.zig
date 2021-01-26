@@ -99,6 +99,61 @@ pub const Scene = struct {
         return scene;
     }
 
+    pub fn new_cornell_box(alloc: *std.mem.Allocator) !Self {
+        var scene = new(alloc, default_camera());
+        scene.camera.defocus = 0;
+        const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
+        const red = try scene.new_material(Material.new_diffuse(1, 0.1, 0.1));
+        const green = try scene.new_material(Material.new_diffuse(0.1, 1, 0.1));
+        const light = try scene.new_material(Material.new_light(1, 1, 1, 4));
+
+        // Light
+        try scene.shapes.append(Shape.new_finite_plane(
+            .{ .x = 0, .y = 1, .z = 0 },
+            1.04,
+            .{ .x = 1, .y = 0, .z = 0 },
+            .{ .x = -0.3, .y = 0.3, .z = -0.3, .w = 0.3 },
+            light,
+        ));
+        // Back wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 0, .y = 0, .z = 1 },
+            -1,
+            white,
+        ));
+        // Left wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 1, .y = 0, .z = 0 },
+            -1,
+            red,
+        ));
+        // Right wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = -1, .y = 0, .z = 0 },
+            -1,
+            green,
+        ));
+        // Top wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 0, .y = -1, .z = 0 },
+            -1.05,
+            white,
+        ));
+        // Bottom wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 0, .y = 1, .z = 0 },
+            -1,
+            white,
+        ));
+        // Front wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 0, .y = 0, .z = -1 },
+            -1,
+            white,
+        ));
+        return scene;
+    }
+
     pub fn new_cornell_balls(alloc: *std.mem.Allocator) !Self {
         var scene = new(alloc, default_camera());
         const white = try scene.new_material(Material.new_diffuse(1, 1, 1));

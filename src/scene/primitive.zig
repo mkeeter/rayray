@@ -117,6 +117,17 @@ pub const Primitive = union(enum) {
         };
     }
 
+    pub fn new_finite_plane(p: c.vec3, offset: f32, q: c.vec3, bounds: c.vec4) Self {
+        return .{
+            .FinitePlane = FinitePlane{
+                .normal = p,
+                .offset = offset,
+                .q = q,
+                .bounds = bounds,
+            },
+        };
+    }
+
     pub fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
         return switch (self) {
             .Sphere => |s| s.encode(buf),

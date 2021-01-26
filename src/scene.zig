@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const c = @import("c.zig");
+const vec3 = @import("vec3.zig");
 
 const Shape = @import("scene/shape.zig").Shape;
 const Material = @import("scene/material.zig").Material;
@@ -21,6 +22,93 @@ pub const Scene = struct {
             .materials = std.ArrayList(Material).init(alloc),
             .camera = camera,
         };
+    }
+
+    fn add_cube(
+        self: *Self,
+        center: c.vec3,
+        dx: c.vec3,
+        dy: c.vec3,
+        // dz is implied by cross(dx, dy)
+        size: c.vec3,
+        mat: u32,
+    ) !void {
+        const dz = vec3.cross(dx, dy);
+        const x = vec3.dot(center, dx);
+        const y = vec3.dot(center, dy);
+        const z = vec3.dot(center, dz);
+        try self.shapes.append(Shape.new_finite_plane(
+            dx,
+            x + size.x / 2,
+            dy,
+            .{
+                .x = y - size.y / 2,
+                .y = y + size.y / 2,
+                .z = z - size.z / 2,
+                .w = z + size.z / 2,
+            },
+            mat,
+        ));
+        try self.shapes.append(Shape.new_finite_plane(
+            vec3.neg(dx),
+            -(x - size.x / 2),
+            dy,
+            .{
+                .x = y - size.y / 2,
+                .y = y + size.y / 2,
+                .z = z - size.z / 2,
+                .w = z + size.z / 2,
+            },
+            mat,
+        ));
+        try self.shapes.append(Shape.new_finite_plane(
+            dy,
+            y + size.y / 2,
+            dx,
+            .{
+                .x = x - size.x / 2,
+                .y = x + size.x / 2,
+                .z = z - size.z / 2,
+                .w = z + size.z / 2,
+            },
+            mat,
+        ));
+        try self.shapes.append(Shape.new_finite_plane(
+            vec3.neg(dy),
+            -(y - size.y / 2),
+            dx,
+            .{
+                .x = x - size.x / 2,
+                .y = x + size.x / 2,
+                .z = z - size.z / 2,
+                .w = z + size.z / 2,
+            },
+            mat,
+        ));
+        try self.shapes.append(Shape.new_finite_plane(
+            dz,
+            z + size.z / 2,
+            dx,
+            .{
+                .x = x - size.x / 2,
+                .y = x + size.x / 2,
+                .z = z - size.z / 2,
+                .w = z + size.z / 2,
+            },
+            mat,
+        ));
+        try self.shapes.append(Shape.new_finite_plane(
+            vec3.neg(dz),
+            -(z - size.z / 2),
+            dx,
+            .{
+                .x = x - size.x / 2,
+                .y = x + size.x / 2,
+                .z = y - size.y / 2,
+                .w = y + size.y / 2,
+            },
+            mat,
+        ));
     }
 
     pub fn clone(self: *const Self) !Self {
@@ -151,6 +239,14 @@ pub const Scene = struct {
             -1,
             white,
         ));
+
+        try scene.add_cube(
+            .{ .x = 0, .y = 0, .z = 0 },
+            vec3.normalize(.{ .x = 0, .y = 1, .z = 0 }),
+            vec3.normalize(.{ .x = 0, .y = 0, .z = 1 }),
+            .{ .x = 0.5, .y = 0.4, .z = 0.3 },
+            white,
+        );
         return scene;
     }
 

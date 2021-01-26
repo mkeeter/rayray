@@ -298,7 +298,7 @@ pub const Renderer = struct {
         self.uniforms.samples += self.uniforms.samples_per_frame;
 
         // Skew samples per frame based on average frame time
-        if (self.frame_time_index == 0) {
+        if (self.frame_time_index == FRAME_TIME_COUNT - 1) {
             var t: i32 = 0;
             for (self.frame_times_ms) |f| {
                 t += f;

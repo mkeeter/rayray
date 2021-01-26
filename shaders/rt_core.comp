@@ -247,7 +247,7 @@ void main() {
                     gl_GlobalInvocationID.x / u.width_px);
 
     // Set up our random seed based on the frame and pixel position
-    uint seed = hash(hash(u.samples) ^ gl_GlobalInvocationID.x);
+    uint seed = hash(hash(u.samples) ^ hash(gl_GlobalInvocationID.x));
     vec4 fragColor = vec4(0);
 
     // This is the ray direction from the center of the camera,

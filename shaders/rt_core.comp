@@ -26,7 +26,7 @@ bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color);
 // Jenkins hash function, specialized for a uint key
 uint32_t hash(uint key) {
     uint h = 0;
-    for (uint i=0; i < 4; ++i) {
+    for (int i=0; i < 4; ++i) {
         h += (key >> (i * 8)) & 0xFF;
         h += h << 10;
         h ^= h >> 6;
@@ -230,7 +230,7 @@ bool mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
 #define BOUNCES 6
 vec3 bounce(vec3 pos, vec3 dir, inout uint seed) {
     vec3 color = vec3(1);
-    for (uint i=0; i < BOUNCES; ++i) {
+    for (int i=0; i < BOUNCES; ++i) {
         // Walk to the next object in the scene, updating the system state
         // using a set of inout variables
         if (trace(seed, pos, dir, color)) {

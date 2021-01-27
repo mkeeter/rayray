@@ -39,7 +39,7 @@ pub const Renderer = struct {
 
     start_time_ms: i64,
     last_time_ms: i64,
-    frame_times_ms: [FRAME_TIME_COUNT]i32,
+    frame_times_ms: [FRAME_TIME_COUNT]u32,
     frame_time_index: u32,
 
     // We render continuously, but reset stats after the optimized renderer
@@ -100,7 +100,7 @@ pub const Renderer = struct {
 
             .start_time_ms = 0,
             .last_time_ms = 0,
-            .frame_times_ms = [_]i32{0} ** FRAME_TIME_COUNT,
+            .frame_times_ms = [_]u32{0} ** FRAME_TIME_COUNT,
             .frame_time_index = 0,
 
             .opt_time_ms = 0,
@@ -290,8 +290,8 @@ pub const Renderer = struct {
         // Record the start time at the first frame, to skip startup time
         if (self.uniforms.samples == 0) {
             self.start_time_ms = now_ms;
-        } else {
-            self.frame_times_ms[self.frame_time_index] = @intCast(i32, now_ms - self.last_time_ms);
+        } else if (now_ms >= self.last_time_ms) {
+            self.frame_times_ms[self.frame_time_index] = @intCast(u32, now_ms - self.last_time_ms);
             self.frame_time_index = (self.frame_time_index + 1) % FRAME_TIME_COUNT;
         }
         self.last_time_ms = now_ms;
@@ -299,7 +299,7 @@ pub const Renderer = struct {
 
         // Skew samples per frame based on average frame time
         if (self.frame_time_index == FRAME_TIME_COUNT - 1) {
-            var t: i32 = 0;
+            var t: u32 = 0;
             for (self.frame_times_ms) |f| {
                 t += f;
             }

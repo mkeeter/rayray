@@ -16,7 +16,7 @@ pub const Options = struct {
         var out = Options{
             .samples_per_frame = 1,
             .width = 600,
-            .height = 600,
+            .height = 623, // includes menu height
         };
         var i: usize = 1;
         while (i < args.len) : (i += 1) {

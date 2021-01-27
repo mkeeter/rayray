@@ -324,7 +324,6 @@ pub const Renderer = struct {
                 self.frame_time_index = 0;
             }
         }
-        std.debug.print("{}\n", .{self.uniforms.samples_per_frame});
     }
 
     fn prefix(v: *f64) u8 {
@@ -359,8 +358,9 @@ pub const Renderer = struct {
 
         return try std.fmt.allocPrintZ(
             alloc,
-            "{d:.2} {c}ray/sec | {} rays/pixel | {} x {}",
+            "{}x | {d:.2} {c}sps | {} spp | {} x {}",
             .{
+                self.uniforms.samples_per_frame,
                 rays_per_sec,
                 rays_per_sec_prefix,
                 self.uniforms.samples,

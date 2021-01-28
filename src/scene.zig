@@ -552,6 +552,29 @@ pub const Scene = struct {
         return stack.toOwnedSlice();
     }
 
+    fn del_shape(self: *Self, index: usize) void {
+        var i = index;
+        while (i < self.shapes.items.len - 1) : (i += 1) {
+            self.shapes.items[i] = self.shapes.items[i + 1];
+        }
+        _ = self.shapes.pop();
+    }
+
+    fn del_material(self: *Self, index: usize) void {
+        var i = index;
+        for (self.shapes.items) |*s| {
+            if (s.mat == index) {
+                s.mat = 0;
+            } else if (s.mat > index) {
+                s.mat -= 1;
+            }
+        }
+        while (i < self.materials.items.len - 1) : (i += 1) {
+            self.materials.items[i] = self.materials.items[i + 1];
+        }
+        _ = self.materials.pop();
+    }
+
     pub fn draw_shapes_gui(self: *Self) !bool {
         var changed = false;
         var i: usize = 0;
@@ -567,7 +590,8 @@ pub const Scene = struct {
             const w = width - c.igGetCursorPosX();
             c.igIndent(w * 0.25);
             if (c.igButton("Delete", .{ .x = w * 0.5, .y = 0 })) {
-                std.debug.print("Deleting shape {}\n", .{i});
+                changed = true;
+                self.del_shape(i);
             }
             c.igUnindent(w * 0.25);
             c.igSeparator();
@@ -596,8 +620,11 @@ pub const Scene = struct {
 
             const w = width - c.igGetCursorPosX();
             c.igIndent(w * 0.25);
-            if (c.igButton("Delete", .{ .x = w * 0.5, .y = 0 })) {
-                std.debug.print("Deleting material {}\n", .{i});
+            if (self.materials.items.len > 1 and
+                c.igButton("Delete", .{ .x = w * 0.5, .y = 0 }))
+            {
+                changed = true;
+                self.del_material(i);
             }
             c.igUnindent(w * 0.25);
             c.igSeparator();

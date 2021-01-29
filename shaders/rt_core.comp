@@ -43,7 +43,7 @@ float rand(inout uint seed) {
     // 32-bit LCG Multiplier from
     // "Computationally Easy, Spectrally Good Multipliers for
     //  Congruential Pseudorandom Number Generators" [Steele + Vigna]
-    seed = 0xadb4a92d * seed + 1;
+    seed = 0xadb4a92du * seed + 1;
 
     // Low bits have less randomness [L’ECUYER '99], so we'll shift the high
     // bits into the mantissa position of an IEEE float32, then mask with

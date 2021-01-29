@@ -26,6 +26,7 @@ pub const Window = struct {
     gui: Gui,
     debounce: Debounce,
 
+    focused: bool,
     show_editor: bool,
     show_gui_demo: bool,
 
@@ -100,6 +101,7 @@ pub const Window = struct {
         // Attach the Window handle to the window so we can extract it
         _ = c.glfwSetWindowUserPointer(window, out);
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
+        _ = c.glfwSetWindowFocusCallback(window, focus_cb);
 
         const scene = try Scene.new_cornell_box(alloc);
         out.* = .{
@@ -114,6 +116,7 @@ pub const Window = struct {
             .debounce = Debounce.init(),
             .show_editor = false,
             .show_gui_demo = false,
+            .focused = false,
         };
         out.resize_swap_chain(options.width, options.height);
 
@@ -241,7 +244,11 @@ pub const Window = struct {
     pub fn run(self: *Self) !void {
         while (!self.should_close()) {
             try self.draw();
-            c.glfwPollEvents();
+            if (self.focused) {
+                c.glfwPollEvents();
+            } else {
+                c.glfwWaitEvents();
+            }
         }
     }
 
@@ -265,12 +272,22 @@ pub const Window = struct {
             },
         );
     }
+
+    fn update_focus(self: *Self, focused: bool) void {
+        self.focused = focused;
+    }
 };
 
 export fn size_cb(w: ?*c.GLFWwindow, width: c_int, height: c_int) void {
     const ptr = c.glfwGetWindowUserPointer(w) orelse std.debug.panic("Missing user pointer", .{});
     var r = @ptrCast(*Window, @alignCast(8, ptr));
     r.update_size(width, height);
+}
+
+export fn focus_cb(w: ?*c.GLFWwindow, focused: c_int) void {
+    const ptr = c.glfwGetWindowUserPointer(w) orelse std.debug.panic("Missing user pointer", .{});
+    var r = @ptrCast(*Window, @alignCast(8, ptr));
+    r.update_focus(focused == c.GLFW_TRUE);
 }
 
 export fn adapter_cb(received: c.WGPUAdapterId, data: ?*c_void) void {

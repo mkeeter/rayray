@@ -17,6 +17,7 @@ layout(local_size_x=COMPUTE_SIZE) in;
 
 #define SURFACE_EPSILON 1e-6
 #define NORMAL_EPSILON  1e-8
+#define PI 3.1415926538
 
 ////////////////////////////////////////////////////////////////////////////////
 // Forward declarations
@@ -54,35 +55,21 @@ float rand(inout uint seed) {
     return f - 3.0;                 // Range [-1:1]
 }
 
-vec3 rand3(inout uint seed) {
-    return vec3(rand(seed), rand(seed), rand(seed));
-}
-
-vec2 rand2(inout uint seed) {
-    return vec2(rand(seed), rand(seed));
-}
-
 // Returns a coordinate uniformly distributed on a sphere's surface
 vec3 rand3_on_sphere(inout uint seed) {
-    while (true) {
-        vec3 v = rand3(seed);
-        float len = dot(v, v);
-        if (len <= 1.0 && len > NORMAL_EPSILON) {
-            return normalize(v);
-        }
-        seed++;
-    }
+    float t = PI * rand(seed);
+    float z = rand(seed);
+    float r = sqrt((z + 1) * (1 - z));
+    float x = cos(t) * r;
+    float y = sin(t) * r;
+    return vec3(x, y, z);
 }
 
 // Returns a coordinate uniformly distributed in a circle of radius 1
 vec2 rand2_in_circle(inout uint seed) {
-    while (true) {
-        vec2 v = rand2(seed);
-        if (length(v) <= 1.0) {
-            return v;
-        }
-        seed++;
-    }
+    float t = PI * rand(seed);
+    float r = sqrt((rand(seed) + 1) / 2);
+    return r * vec2(cos(t), sin(t));
 }
 
 // Normalize, snapping to the normal if the vector is pathologically short
@@ -259,12 +246,10 @@ void main() {
 
     for (uint i=0; i < u.samples_per_frame; ++i) {
         // Add anti-aliasing by jittering within the pixel
-        float pixel_dx = rand(seed) / 2;
-        float pixel_dy = rand(seed) / 2;
+        vec2 subpixel = vec2(rand(seed), rand(seed)) / 2;
 
         // Pixel position as a normalized [-1,1] value, with antialiasing
-        vec2 pixel_xy = (p + vec2(pixel_dx, pixel_dy)) /
-                         vec2(u.width_px, u.height_px) * 2 - 1;
+        vec2 pixel_xy = (p + subpixel) / vec2(u.width_px, u.height_px) * 2 - 1;
 
         // Calculate the offset from camera center for this pixel, in 3D space,
         // then use this offset for both the start of the ray and for the

@@ -651,7 +651,7 @@ pub const Scene = struct {
             \\#pragma shader_stage(compute)
             \\#include "shaders/rt_core.comp"
             \\
-            \\bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color)
+            \\bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout Color color)
             \\{{
             \\    float best_dist = 1e8;
             \\    uint best_hit = 0;
@@ -703,7 +703,7 @@ pub const Scene = struct {
             \\
             \\    // If we missed all objects, terminate immediately with blackness
             \\    if (best_hit == 0) {{
-            \\        color = vec3(0);
+            \\        color = Color(0);
             \\        return true;
             \\    }}
             \\    pos = pos + dir*best_dist;
@@ -862,7 +862,7 @@ pub const Scene = struct {
             \\    }}
             \\
             \\    // Reaching here is an error, so set the color to green and terminate
-            \\    color = vec3(0, 1, 0);
+            \\    color = RAYRAY_GREEN;
             \\    return true;
             \\}}
         , .{

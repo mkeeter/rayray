@@ -19,9 +19,18 @@ layout(local_size_x=COMPUTE_SIZE) in;
 #define NORMAL_EPSILON  1e-8
 #define PI 3.1415926538
 
+#ifdef RAYRAY_SPECTRAL
+#include "shaders/wavelength_rgb.h"
+#define Color vec2
+#define RAYRAY_GREEN Color(565, 1)
+#else
+#define Color vec3
+#define RAYRAY_GREEN Color(0, 1, 0)
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////
 // Forward declarations
-bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color);
+bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout Color color);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Jenkins hash function, specialized for a uint key
@@ -144,23 +153,38 @@ vec3 norm_sphere(vec3 pos, vec3 center) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-bool mat_light(inout vec3 color, vec3 light_color) {
+bool mat_light(inout Color color, vec3 light_color) {
+#ifdef RAYRAY_SPECTRAL
+    vec3 rgb = WAVELENGTH_RGB[int(color.x)] * light_color;
+    color.y *= dot(rgb, rgb); // Adjust brightness
+#else
     color *= light_color;
+#endif
     return true;
 }
 
-bool mat_diffuse(inout uint seed, inout vec3 color, inout vec3 dir,
+bool mat_diffuse(inout uint seed, inout Color color, inout vec3 dir,
                  vec3 norm, vec3 diffuse_color)
 {
+#ifdef RAYRAY_SPECTRAL
+    vec3 rgb = WAVELENGTH_RGB[int(color.x)] * diffuse_color;
+    color.y *= dot(rgb, rgb); // Adjust brightness
+#else
     color *= diffuse_color;
+#endif
     dir = sanitize_dir(norm + rand3_on_sphere(seed), norm);
     return false;
 }
 
-bool mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
+bool mat_metal(inout uint seed, inout Color color, inout vec3 dir,
                vec3 norm, vec3 metal_color, float fuzz)
 {
+#ifdef RAYRAY_SPECTRAL
+    vec3 rgb = WAVELENGTH_RGB[int(color.x)] * metal_color;
+    color.y *= dot(rgb, rgb); // Adjust brightness
+#else
     color *= metal_color;
+#endif
     dir -= norm * dot(norm, dir)*2;
     if (fuzz != 0) {
         dir += rand3_on_sphere(seed) * fuzz;
@@ -174,7 +198,7 @@ bool mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
 }
 
 // This doesn't support nested materials with different etas!
-bool mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
+bool mat_glass(inout uint seed, inout Color color, inout vec3 dir,
                vec3 norm, float eta)
 {
     // If we're entering the shape, then decide whether to reflect
@@ -211,16 +235,15 @@ bool mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
 ////////////////////////////////////////////////////////////////////////////////
 
 #define BOUNCES 6
-vec3 bounce(vec3 pos, vec3 dir, inout uint seed) {
-    vec3 color = vec3(1);
+void bounce(vec3 pos, vec3 dir, inout uint seed, inout Color color) {
     for (int i=0; i < BOUNCES; ++i) {
         // Walk to the next object in the scene, updating the system state
         // using a set of inout variables
         if (trace(seed, pos, dir, color)) {
-            return color;
+            return;
         }
     }
-    return vec3(0);
+    color = Color(0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -249,7 +272,7 @@ void main() {
         vec2 subpixel = vec2(rand(seed), rand(seed)) / 2;
 
         // Pixel position as a normalized [-1,1] value, with antialiasing
-        vec2 pixel_xy = (p + subpixel) / vec2(u.width_px, u.height_px) * 2 - 1;
+        vec2 pixel_xy = (p) / vec2(u.width_px, u.height_px) * 2 - 1;
 
         // Calculate the offset from camera center for this pixel, in 3D space,
         // then use this offset for both the start of the ray and for the
@@ -269,8 +292,22 @@ void main() {
         // Finally, re-adjust the direction so that we hit the same target
         dir = normalize(target - start);
 
-        // Actually do the raytracing here, accumulating color
-        fragColor += vec4(bounce(start, dir, seed), 1);
+#ifdef RAYRAY_SPECTRAL
+        // Pick a random wavelength between 400 and 700 nm
+        Color color = vec2(rand(seed) * 150 + 550, 1);
+#else
+        // Start with white
+        Color color = vec3(1);
+#endif
+
+        // Bounce the light around, updating the color based on what it hits
+        bounce(start, dir, seed, color);
+
+#ifdef RAYRAY_SPECTRAL
+        fragColor += vec4(WAVELENGTH_RGB[int(color.x)] * color.y, 1);
+#else
+        fragColor += vec4(color, 1);
+#endif
     }
 
     if (u.samples > 0) {

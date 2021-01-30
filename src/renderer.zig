@@ -72,9 +72,9 @@ pub const Renderer = struct {
             .queue = c.wgpu_device_get_default_queue(device),
 
             .compiler = null,
-            .preview = undefined, // Built after resize()
+            .preview = undefined, // Built after update_size()
             .optimized = null,
-            .blit = undefined, // Built after resize()
+            .blit = undefined, // Built after update_size()
             .scene = scene,
 
             // Populated in update_size()
@@ -293,8 +293,13 @@ pub const Renderer = struct {
         if (self.uniforms.samples == 0) {
             self.start_time_ms = now_ms;
         } else if (now_ms >= self.last_time_ms) {
-            self.frame_times_ms[self.frame_time_index] = @intCast(u32, now_ms - self.last_time_ms);
-            self.frame_time_index = (self.frame_time_index + 1) % FRAME_TIME_COUNT;
+            const dt = @intCast(u32, now_ms - self.last_time_ms);
+            // Work around an issue where frames get submitted too fast,
+            // which can causes the autoscaler to overestimate its capabilities
+            if (dt > 15) {
+                self.frame_times_ms[self.frame_time_index] = dt;
+                self.frame_time_index = (self.frame_time_index + 1) % FRAME_TIME_COUNT;
+            }
         }
         self.last_time_ms = now_ms;
         self.uniforms.samples += self.uniforms.samples_per_frame;

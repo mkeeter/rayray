@@ -487,7 +487,6 @@ pub const Scene = struct {
         var scene = new(alloc, default_camera());
         scene.camera.perspective = 0;
         scene.camera.defocus = 0;
-        const mirror = try scene.new_material(Material.new_metal(1, 1, 1, 0));
         const light = try scene.new_material(Material.new_laser(1, 1, 1, 200, 0.99));
         const glass = try scene.new_material(Material.new_glass(1, 1, 1, 1.5));
         const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
@@ -504,6 +503,20 @@ pub const Scene = struct {
             .{ .x = 1, .y = 0, .z = 0 },
             .{ .x = -0.01, .y = 0.01, .z = -1, .w = 1 },
             light,
+        ));
+        try scene.shapes.append(Shape.new_finite_plane(
+            .{ .x = -0.394, .y = -0.919, .z = 0 },
+            0.3,
+            .{ .x = 1, .y = 0, .z = 0 },
+            .{ .x = -0.6, .y = 0.35, .z = -1, .w = 1 },
+            glass,
+        ));
+        try scene.shapes.append(Shape.new_finite_plane(
+            .{ .x = -0.394, .y = 0.919, .z = 0 },
+            0.3,
+            .{ .x = 1, .y = 0, .z = 0 },
+            .{ .x = -0.6, .y = 0.35, .z = -1, .w = 1 },
+            glass,
         ));
         return scene;
     }

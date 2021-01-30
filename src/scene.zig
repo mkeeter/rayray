@@ -483,6 +483,29 @@ pub const Scene = struct {
         return scene;
     }
 
+    pub fn new_prism(alloc: *std.mem.Allocator) !Self {
+        var scene = new(alloc, default_camera());
+        const mirror = try scene.new_material(Material.new_metal(1, 1, 1, 0));
+        const light = try scene.new_material(Material.new_light(1, 1, 1, 1));
+        const glass = try scene.new_material(Material.new_glass(1, 1, 1, 1.5));
+        const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
+
+        // Back wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 0, .y = 0, .z = 1 },
+            -1,
+            white,
+        ));
+        try scene.shapes.append(Shape.new_finite_plane(
+            .{ .x = 0, .y = 1, .z = 0 },
+            -1,
+            .{ .x = 1, .y = 0, .z = 0 },
+            .{ .x = -0.1, .y = 0.1, .z = -1, .w = 1 },
+            light,
+        ));
+        return scene;
+    }
+
     pub fn deinit(self: *Self) void {
         self.shapes.deinit();
         self.materials.deinit();

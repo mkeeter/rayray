@@ -38,6 +38,8 @@ pub const Options = struct {
                         std.process.exit(1);
                     }
                 }
+            } else if (std.mem.eql(u8, args[i], "-s")) {
+                out.spectral = true;
             } else {
                 std.debug.print("Unknown option: {s}", .{args[i]});
                 std.process.exit(1);

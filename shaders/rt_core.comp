@@ -148,8 +148,7 @@ vec3 norm_sphere(vec3 pos, vec3 center) {
 
 bool mat_light(inout vec3 color, vec3 light_color) {
     if (u.spectral != 0) {
-        vec3 rgb = WAVELENGTH_RGB[int(color.x) - 400] * light_color;
-        color.y *= dot(rgb, rgb); // Adjust brightness
+        color.y *= dot(WAVELENGTH_RGB[int(color.x) - 400], light_color);
     } else {
         color *= light_color;
     }
@@ -160,8 +159,7 @@ bool mat_diffuse(inout uint seed, inout vec3 color, inout vec3 dir,
                  vec3 norm, vec3 diffuse_color)
 {
     if (u.spectral != 0) {
-        vec3 rgb = WAVELENGTH_RGB[int(color.x) - 400] * diffuse_color;
-        color.y *= dot(rgb, rgb); // Adjust brightness
+        color.y *= dot(WAVELENGTH_RGB[int(color.x) - 400], diffuse_color);
     } else {
         color *= diffuse_color;
     }
@@ -173,8 +171,7 @@ bool mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
                vec3 norm, vec3 metal_color, float fuzz)
 {
     if (u.spectral != 0) {
-        vec3 rgb = WAVELENGTH_RGB[int(color.x) - 400] * metal_color;
-        color.y *= dot(rgb, rgb); // Adjust brightness
+        color.y *= dot(WAVELENGTH_RGB[int(color.x) - 400], metal_color);
     } else {
         color *= metal_color;
     }
@@ -300,7 +297,8 @@ void main() {
         bounce(start, dir, seed, color);
 
         if (u.spectral != 0) {
-            fragColor += vec4(WAVELENGTH_RGB[wavelength - 400] * color.y, 1);
+            fragColor += vec4(WAVELENGTH_RGB[wavelength - 400] * color.y
+                              * WAVELENGTH_RGB_BIAS, 1);
         } else {
             fragColor += vec4(color, 1);
         }

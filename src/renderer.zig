@@ -92,6 +92,7 @@ pub const Renderer = struct {
                 .samples = 0,
                 .samples_per_frame = options.samples_per_frame,
 
+                .spectral = if (options.spectral) 1 else 0,
                 ._padding = undefined,
 
                 .camera = scene.camera,
@@ -145,6 +146,7 @@ pub const Renderer = struct {
             .samples_per_frame = self.uniforms.samples_per_frame,
             .width = self.uniforms.width_px,
             .height = self.uniforms.height_px,
+            .spectral = self.uniforms.spectral != 0,
         };
     }
 

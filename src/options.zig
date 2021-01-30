@@ -4,6 +4,7 @@ pub const Options = struct {
     samples_per_frame: u32,
     width: u32,
     height: u32,
+    spectral: bool,
 
     fn print_help() !void {
         const stdout = std.io.getStdOut().writer();
@@ -17,6 +18,7 @@ pub const Options = struct {
             .samples_per_frame = 1,
             .width = 600,
             .height = 623, // includes menu height
+            .spectral = false,
         };
         var i: usize = 1;
         while (i < args.len) : (i += 1) {

@@ -61,7 +61,8 @@ struct rayUniforms {
     uint32_t samples; // Used to scale brightness
     uint32_t samples_per_frame; // Loop in the fragment shader on faster GPUs
 
-    uint32_t _padding[2];
+    uint32_t spectral; // Used as a boolean flag
+    uint32_t _padding;
 
     // Camera parameters!
     MEMBER_STRUCT rayCamera camera;

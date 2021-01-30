@@ -19,18 +19,11 @@ layout(local_size_x=COMPUTE_SIZE) in;
 #define NORMAL_EPSILON  1e-8
 #define PI 3.1415926538
 
-#ifdef RAYRAY_SPECTRAL
 #include "shaders/wavelength_rgb.h"
-#define Color vec2
-#define RAYRAY_GREEN Color(565, 1)
-#else
-#define Color vec3
-#define RAYRAY_GREEN Color(0, 1, 0)
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // Forward declarations
-bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout Color color);
+bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Jenkins hash function, specialized for a uint key
@@ -153,38 +146,38 @@ vec3 norm_sphere(vec3 pos, vec3 center) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-bool mat_light(inout Color color, vec3 light_color) {
-#ifdef RAYRAY_SPECTRAL
-    vec3 rgb = WAVELENGTH_RGB[int(color.x) - 400] * light_color;
-    color.y *= dot(rgb, rgb); // Adjust brightness
-#else
-    color *= light_color;
-#endif
+bool mat_light(inout vec3 color, vec3 light_color) {
+    if (u.spectral != 0) {
+        vec3 rgb = WAVELENGTH_RGB[int(color.x) - 400] * light_color;
+        color.y *= dot(rgb, rgb); // Adjust brightness
+    } else {
+        color *= light_color;
+    }
     return true;
 }
 
-bool mat_diffuse(inout uint seed, inout Color color, inout vec3 dir,
+bool mat_diffuse(inout uint seed, inout vec3 color, inout vec3 dir,
                  vec3 norm, vec3 diffuse_color)
 {
-#ifdef RAYRAY_SPECTRAL
-    vec3 rgb = WAVELENGTH_RGB[int(color.x) - 400] * diffuse_color;
-    color.y *= dot(rgb, rgb); // Adjust brightness
-#else
-    color *= diffuse_color;
-#endif
+    if (u.spectral != 0) {
+        vec3 rgb = WAVELENGTH_RGB[int(color.x) - 400] * diffuse_color;
+        color.y *= dot(rgb, rgb); // Adjust brightness
+    } else {
+        color *= diffuse_color;
+    }
     dir = sanitize_dir(norm + rand3_on_sphere(seed), norm);
     return false;
 }
 
-bool mat_metal(inout uint seed, inout Color color, inout vec3 dir,
+bool mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
                vec3 norm, vec3 metal_color, float fuzz)
 {
-#ifdef RAYRAY_SPECTRAL
-    vec3 rgb = WAVELENGTH_RGB[int(color.x) - 400] * metal_color;
-    color.y *= dot(rgb, rgb); // Adjust brightness
-#else
-    color *= metal_color;
-#endif
+    if (u.spectral != 0) {
+        vec3 rgb = WAVELENGTH_RGB[int(color.x) - 400] * metal_color;
+        color.y *= dot(rgb, rgb); // Adjust brightness
+    } else {
+        color *= metal_color;
+    }
     dir -= norm * dot(norm, dir)*2;
     if (fuzz != 0) {
         dir += rand3_on_sphere(seed) * fuzz;
@@ -198,7 +191,7 @@ bool mat_metal(inout uint seed, inout Color color, inout vec3 dir,
 }
 
 // This doesn't support nested materials with different etas!
-bool mat_glass(inout uint seed, inout Color color, inout vec3 dir,
+bool mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
                vec3 norm, float eta)
 {
     // If we're entering the shape, then decide whether to reflect
@@ -235,7 +228,7 @@ bool mat_glass(inout uint seed, inout Color color, inout vec3 dir,
 ////////////////////////////////////////////////////////////////////////////////
 
 #define BOUNCES 6
-void bounce(vec3 pos, vec3 dir, inout uint seed, inout Color color) {
+void bounce(vec3 pos, vec3 dir, inout uint seed, inout vec3 color) {
     for (int i=0; i < BOUNCES; ++i) {
         // Walk to the next object in the scene, updating the system state
         // using a set of inout variables
@@ -243,7 +236,7 @@ void bounce(vec3 pos, vec3 dir, inout uint seed, inout Color color) {
             return;
         }
     }
-    color = Color(0);
+    color = vec3(0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -292,23 +285,25 @@ void main() {
         // Finally, re-adjust the direction so that we hit the same target
         dir = normalize(target - start);
 
-#ifdef RAYRAY_SPECTRAL
-        // Pick a random wavelength between 400 and 700 nm
-        int wavelength = clamp(int(rand(seed) * 150 + 550), 400, 700);
-        Color color = vec2(wavelength, 1);
-#else
-        // Start with white
-        Color color = vec3(1);
-#endif
+        int wavelength;
+        vec3 color;
+        if (u.spectral != 0) {
+            // Pick a random wavelength between 400 and 700 nm
+            wavelength = clamp(int(rand(seed) * 150 + 550), 400, 700);
+            color = vec3(wavelength, 1, 0);
+        } else {
+            // Start with white
+            color = vec3(1);
+        }
 
         // Bounce the light around, updating the color based on what it hits
         bounce(start, dir, seed, color);
 
-#ifdef RAYRAY_SPECTRAL
-        fragColor += vec4(WAVELENGTH_RGB[wavelength - 400] * color.y, 1);
-#else
-        fragColor += vec4(color, 1);
-#endif
+        if (u.spectral != 0) {
+            fragColor += vec4(WAVELENGTH_RGB[wavelength - 400] * color.y, 1);
+        } else {
+            fragColor += vec4(color, 1);
+        }
     }
 
     if (u.samples > 0) {

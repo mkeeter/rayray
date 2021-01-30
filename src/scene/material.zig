@@ -98,6 +98,34 @@ pub const Glass = struct {
     }
 };
 
+pub const Laser = struct {
+    const Self = @This();
+
+    // The GUI clamps colors to 0-1, so we include a secondary multiplier
+    // to adjust brightness beyond that range.
+    color: Color,
+    intensity: f32,
+    focus: f32,
+
+    fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
+        return buf.append(.{
+            .x = self.color.r * self.intensity,
+            .y = self.color.g * self.intensity,
+            .z = self.color.b * self.intensity,
+            .w = self.focus,
+        });
+    }
+
+    fn draw_gui(self: *Self) bool {
+        const a = c.igColorEdit3("", @ptrCast([*c]f32, &self.color), 0);
+        c.igPushItemWidth(c.igGetWindowWidth() * 0.4);
+        const b = c.igDragFloat("intensity", &self.intensity, 0.05, 1, 500, "%.2f", 0);
+        const f = c.igDragFloat("focus", &self.focus, 0.01, 0, 1, "%.2f", 0);
+        c.igPopItemWidth();
+        return a or b or f;
+    }
+};
+
 pub const Material = union(enum) {
     const Self = @This();
 
@@ -105,6 +133,7 @@ pub const Material = union(enum) {
     Light: Light,
     Metal: Metal,
     Glass: Glass,
+    Laser: Laser,
 
     pub fn tag(self: Self) u32 {
         return switch (self) {
@@ -112,6 +141,7 @@ pub const Material = union(enum) {
             .Light => c.MAT_LIGHT,
             .Metal => c.MAT_METAL,
             .Glass => c.MAT_GLASS,
+            .Laser => c.MAT_LASER,
         };
     }
 
@@ -142,6 +172,16 @@ pub const Material = union(enum) {
         };
     }
 
+    pub fn new_laser(r: f32, g: f32, b: f32, intensity: f32, focus: f32) Self {
+        return .{
+            .Laser = .{
+                .color = .{ .r = r, .g = g, .b = b },
+                .intensity = intensity,
+                .focus = focus,
+            },
+        };
+    }
+
     pub fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
         // We don't encode the tag here, because we can put it into the Shape
         // header to save space.
@@ -150,6 +190,7 @@ pub const Material = union(enum) {
             .Light => |m| m.encode(buf),
             .Metal => |m| m.encode(buf),
             .Glass => |m| m.encode(buf),
+            .Laser => |m| m.encode(buf),
         };
     }
 
@@ -159,6 +200,7 @@ pub const Material = union(enum) {
             .Light => |m| m.color,
             .Metal => |m| m.color,
             .Glass => |m| m.color,
+            .Laser => |m| m.color,
         };
     }
 
@@ -192,6 +234,13 @@ pub const Material = union(enum) {
                         .eta = 0.15,
                     },
                 },
+                .Laser => self.* = .{
+                    .Laser = .{
+                        .color = self.color(),
+                        .intensity = 1,
+                        .focus = 0.5,
+                    },
+                },
             }
         }
 
@@ -200,6 +249,7 @@ pub const Material = union(enum) {
             .Light => |*d| d.draw_gui(),
             .Metal => |*d| d.draw_gui(),
             .Glass => |*d| d.draw_gui(),
+            .Laser => |*d| d.draw_gui(),
         } or changed;
 
         return changed;

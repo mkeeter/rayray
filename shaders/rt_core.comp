@@ -155,6 +155,19 @@ bool mat_light(inout vec3 color, vec3 light_color) {
     return true;
 }
 
+bool mat_laser(inout vec3 color, inout vec3 dir,
+               vec3 norm, vec3 light_color, float focus)
+{
+    float f = dot(-norm, dir);
+    float dim = (f > focus) ? 1 : 0;
+    if (u.spectral != 0) {
+        color.y *= dot(WAVELENGTH_RGB[int(color.x) - 400], light_color) * dim;
+    } else {
+        color *= light_color * dim;
+    }
+    return true;
+}
+
 bool mat_diffuse(inout uint seed, inout vec3 color, inout vec3 dir,
                  vec3 norm, vec3 diffuse_color)
 {
@@ -262,7 +275,7 @@ void main() {
         vec2 subpixel = vec2(rand(seed), rand(seed)) / 2;
 
         // Pixel position as a normalized [-1,1] value, with antialiasing
-        vec2 pixel_xy = (p) / vec2(u.width_px, u.height_px) * 2 - 1;
+        vec2 pixel_xy = (p + subpixel) / vec2(u.width_px, u.height_px) * 2 - 1;
 
         // Calculate the offset from camera center for this pixel, in 3D space,
         // then use this offset for both the start of the ray and for the

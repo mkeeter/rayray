@@ -485,8 +485,10 @@ pub const Scene = struct {
 
     pub fn new_prism(alloc: *std.mem.Allocator) !Self {
         var scene = new(alloc, default_camera());
+        scene.camera.perspective = 0;
+        scene.camera.defocus = 0;
         const mirror = try scene.new_material(Material.new_metal(1, 1, 1, 0));
-        const light = try scene.new_material(Material.new_light(1, 1, 1, 1));
+        const light = try scene.new_material(Material.new_laser(1, 1, 1, 200, 0.99));
         const glass = try scene.new_material(Material.new_glass(1, 1, 1, 1.5));
         const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
 
@@ -500,7 +502,7 @@ pub const Scene = struct {
             .{ .x = 0, .y = 1, .z = 0 },
             -1,
             .{ .x = 1, .y = 0, .z = 0 },
-            .{ .x = -0.1, .y = 0.1, .z = -1, .w = 1 },
+            .{ .x = -0.01, .y = 0.01, .z = -1, .w = 1 },
             light,
         ));
         return scene;
@@ -782,6 +784,7 @@ pub const Scene = struct {
         var light_data: []u8 = "";
         var metal_data: []u8 = "";
         var glass_data: []u8 = "";
+        var laser_data: []u8 = "";
 
         for (self.shapes.items) |shape| {
             switch (shape.prim) {
@@ -818,6 +821,10 @@ pub const Scene = struct {
                     \\{s}
                     \\                vec4({}, {}, {}, {}),
                 , .{ glass_data, s.color.r, s.color.g, s.color.b, s.eta }),
+                .Laser => |s| laser_data = try std.fmt.allocPrint(tmp_alloc,
+                    \\{s}
+                    \\                vec4({}, {}, {}, {}),
+                , .{ laser_data, s.color.r * s.intensity, s.color.g * s.intensity, s.color.b * s.intensity, s.focus }),
             }
         }
 
@@ -882,6 +889,14 @@ pub const Scene = struct {
             \\            vec4 m = data[key.w];
             \\            return mat_glass(seed, color, dir, norm, m.w);
             \\        }}
+            \\        case MAT_LASER: {{
+            \\            // R, G, B, focus
+            \\            const vec4 data[] = {{
+            \\                vec4(0), // Dummy{s}
+            \\            }};
+            \\            vec4 m = data[key.w];
+            \\            return mat_laser(color, dir, norm, m.xyz, m.w);
+            \\        }}
             \\    }}
             \\
             \\    // Reaching here is an error, so set the color to green and terminate
@@ -901,6 +916,7 @@ pub const Scene = struct {
             light_data,
             metal_data,
             glass_data,
+            laser_data,
         });
 
         // Dupe to the standard allocator, so it won't be freed

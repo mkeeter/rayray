@@ -148,7 +148,7 @@ vec3 norm_sphere(vec3 pos, vec3 center) {
 
 bool mat_light(inout vec3 color, vec3 light_color) {
     if (u.spectral != 0) {
-        color.y *= dot(WAVELENGTH_RGB[int(color.x) - 400], light_color);
+        color.y *= dot(WAVELENGTH_RGB[int(color.x)], light_color);
     } else {
         color *= light_color;
     }
@@ -161,7 +161,7 @@ bool mat_laser(inout vec3 color, inout vec3 dir,
     float f = dot(-norm, dir);
     float dim = (f > focus) ? 1 : 0;
     if (u.spectral != 0) {
-        color.y *= dot(WAVELENGTH_RGB[int(color.x) - 400], light_color) * dim;
+        color.y *= dot(WAVELENGTH_RGB[int(color.x)], light_color) * dim;
     } else {
         color *= light_color * dim;
     }
@@ -172,7 +172,7 @@ bool mat_diffuse(inout uint seed, inout vec3 color, inout vec3 dir,
                  vec3 norm, vec3 diffuse_color)
 {
     if (u.spectral != 0) {
-        color.y *= dot(WAVELENGTH_RGB[int(color.x) - 400], diffuse_color);
+        color.y *= dot(WAVELENGTH_RGB[int(color.x)], diffuse_color);
     } else {
         color *= diffuse_color;
     }
@@ -184,7 +184,7 @@ bool mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
                vec3 norm, vec3 metal_color, float fuzz)
 {
     if (u.spectral != 0) {
-        color.y *= dot(WAVELENGTH_RGB[int(color.x) - 400], metal_color);
+        color.y *= dot(WAVELENGTH_RGB[int(color.x)], metal_color);
     } else {
         color *= metal_color;
     }
@@ -204,6 +204,10 @@ bool mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
 bool mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
                vec3 norm, float eta)
 {
+    // Tweak eta so that lower wavelengths refract more
+    if (u.spectral != 0) {
+        eta += color.x/300 * 0.3;
+    }
     // If we're entering the shape, then decide whether to reflect
     // or refract based on the incoming angle
     if (dot(dir, norm) < 0) {
@@ -298,8 +302,8 @@ void main() {
         int wavelength;
         vec3 color;
         if (u.spectral != 0) {
-            // Pick a random wavelength between 400 and 700 nm
-            wavelength = clamp(int(rand(seed) * 150 + 550), 400, 700);
+            // Pick a random wavelength between 400 and 700 nm, offset
+            wavelength = clamp(int(rand(seed) * 150 + 150), 0, 300);
             color = vec3(wavelength, 1, 0);
         } else {
             // Start with white
@@ -310,7 +314,7 @@ void main() {
         bounce(start, dir, seed, color);
 
         if (u.spectral != 0) {
-            fragColor += vec4(WAVELENGTH_RGB[wavelength - 400] * color.y
+            fragColor += vec4(WAVELENGTH_RGB[wavelength] * color.y
                               * WAVELENGTH_RGB_BIAS, 1);
         } else {
             fragColor += vec4(color, 1);

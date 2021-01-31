@@ -260,7 +260,8 @@ void main() {
                     gl_GlobalInvocationID.x / u.width_px);
 
     // Set up our random seed based on the frame and pixel position
-    uint seed = hash(hash(u.samples) ^ hash(gl_GlobalInvocationID.x));
+    uint frame_seed = hash(u.samples);
+    uint seed = hash(frame_seed ^ hash(gl_GlobalInvocationID.x));
     vec4 fragColor = vec4(0);
 
     // This is the ray direction from the center of the camera,
@@ -303,7 +304,10 @@ void main() {
         vec3 color;
         if (u.spectral != 0) {
             // Pick a random wavelength between 400 and 700 nm, offset
-            wavelength = clamp(int(rand(seed) * 150 + 150), 0, 300);
+            //
+            // This wavelength is the same for every ray in the frame,
+            // so that reading WAVELENGTH_RGB isn't scattered.
+            wavelength = clamp(int(rand(frame_seed) * 150 + 150), 0, 300);
             color = vec3(wavelength, 1, 0);
         } else {
             // Start with white

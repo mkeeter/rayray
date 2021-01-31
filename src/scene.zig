@@ -260,7 +260,7 @@ pub const Scene = struct {
         const blue = try scene.new_material(Material.new_diffuse(0.1, 0.1, 1));
         const green = try scene.new_material(Material.new_diffuse(0.1, 1, 0.1));
         const metal = try scene.new_material(Material.new_metal(1, 1, 0.5, 0.1));
-        const glass = try scene.new_material(Material.new_glass(1, 1, 1, 1.5));
+        const glass = try scene.new_material(Material.new_glass(1.3, 0.0013));
         const light = try scene.new_material(Material.new_light(1, 1, 1, 4));
 
         // Light
@@ -353,9 +353,7 @@ pub const Scene = struct {
             1000,
             ground_material,
         ));
-        const glass_mat = try scene.new_material(
-            Material.new_glass(1, 1, 1, 1.5),
-        );
+        const glass_mat = try scene.new_material(Material.new_glass(1.3, 0.0013));
 
         var a: i32 = -11;
         while (a < 11) : (a += 1) {
@@ -432,7 +430,7 @@ pub const Scene = struct {
         var scene = new(alloc);
         const blue = try scene.new_material(Material.new_diffuse(0.5, 0.5, 1));
         const red = try scene.new_material(Material.new_diffuse(1, 0.5, 0.5));
-        const glass = try scene.new_material(Material.new_glass(1, 1, 1, 1.5));
+        const glass = try scene.new_material(Material.new_glass(1.3, 0.0013));
         const light = try scene.new_material(Material.new_light(1, 1, 1, 1));
 
         // Back wall
@@ -489,7 +487,7 @@ pub const Scene = struct {
         scene.camera.defocus = 0;
         scene.camera.up = .{ .x = -1, .y = 0, .z = 0 };
         const light = try scene.new_material(Material.new_laser(1, 1, 1, 400, 0.99));
-        const glass = try scene.new_material(Material.new_glass(1, 1, 1, 1.3));
+        const glass = try scene.new_material(Material.new_glass(1.3, 0.0013));
         const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
 
         // Back wall
@@ -833,8 +831,8 @@ pub const Scene = struct {
                 , .{ metal_data, s.color.r, s.color.g, s.color.b, s.fuzz }),
                 .Glass => |s| glass_data = try std.fmt.allocPrint(tmp_alloc,
                     \\{s}
-                    \\                vec4({}, {}, {}, {}),
-                , .{ glass_data, s.color.r, s.color.g, s.color.b, s.eta }),
+                    \\                vec2({}, {}),
+                , .{ glass_data, s.eta, s.slope }),
                 .Laser => |s| laser_data = try std.fmt.allocPrint(tmp_alloc,
                     \\{s}
                     \\                vec4({}, {}, {}, {}),
@@ -897,11 +895,11 @@ pub const Scene = struct {
             \\        }}
             \\        case MAT_GLASS: {{
             \\            // R, G, B, eta
-            \\            const vec4 data[] = {{
-            \\                vec4(0), // Dummy{s}
+            \\            const vec2 data[] = {{
+            \\                vec2(0), // Dummy{s}
             \\            }};
-            \\            vec4 m = data[key.w];
-            \\            return mat_glass(seed, color, dir, norm, m.w);
+            \\            vec2 m = data[key.w];
+            \\            return mat_glass(seed, color, dir, norm, m.x, m.y);
             \\        }}
             \\        case MAT_LASER: {{
             \\            // R, G, B, focus

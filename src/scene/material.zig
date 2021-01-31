@@ -79,20 +79,20 @@ pub const Metal = struct {
 pub const Glass = struct {
     const Self = @This();
 
-    color: Color,
     eta: f32,
+    slope: f32,
     fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
         try buf.append(.{
-            .x = self.color.r,
-            .y = self.color.g,
-            .z = self.color.b,
-            .w = self.eta,
+            .x = self.eta,
+            .y = self.slope,
+            .z = 0,
+            .w = 0,
         });
     }
     fn draw_gui(self: *Self) bool {
-        const a = c.igColorEdit3("", @ptrCast([*c]f32, &self.color), 0);
         c.igPushItemWidth(c.igGetWindowWidth() * 0.4);
-        const b = c.igDragFloat("eta", &self.eta, 0.01, 1, 2, "%.2f", 0);
+        const a = c.igDragFloat("eta", &self.eta, 0.01, 1, 2, "%.2f", 0);
+        const b = c.igDragFloat("slope", &self.slope, 0.0001, 0, 0.01, "%.4f", 0);
         c.igPopItemWidth();
         return a or b;
     }
@@ -166,9 +166,9 @@ pub const Material = union(enum) {
         };
     }
 
-    pub fn new_glass(r: f32, g: f32, b: f32, eta: f32) Self {
+    pub fn new_glass(eta: f32, slope: f32) Self {
         return .{
-            .Glass = .{ .color = .{ .r = r, .g = g, .b = b }, .eta = eta },
+            .Glass = .{ .eta = eta, .slope = slope },
         };
     }
 
@@ -199,7 +199,7 @@ pub const Material = union(enum) {
             .Diffuse => |m| m.color,
             .Light => |m| m.color,
             .Metal => |m| m.color,
-            .Glass => |m| m.color,
+            .Glass => |m| Color{ .r = 1, .g = 0.5, .b = 0.5 },
             .Laser => |m| m.color,
         };
     }
@@ -230,8 +230,8 @@ pub const Material = union(enum) {
                 },
                 .Glass => self.* = .{
                     .Glass = .{
-                        .color = self.color(),
                         .eta = 0.15,
+                        .slope = 0.013,
                     },
                 },
                 .Laser => self.* = .{

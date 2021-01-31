@@ -201,12 +201,12 @@ bool mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
 }
 
 // This doesn't support nested materials with different etas!
-bool mat_glass(inout uint seed, inout vec3 color, inout vec3 dir,
-               vec3 norm, float eta)
+bool mat_glass(inout uint seed, vec3 color, inout vec3 dir, vec3 norm,
+               float eta, float slope)
 {
-    // Tweak eta so that lower wavelengths refract more
+    // Tweak eta based on slope parameter
     if (u.spectral != 0) {
-        eta += color.x/300 * 0.3;
+        eta += (color.x - 150) * slope;
     }
     // If we're entering the shape, then decide whether to reflect
     // or refract based on the incoming angle

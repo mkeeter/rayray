@@ -162,6 +162,87 @@ pub const Scene = struct {
         return scene;
     }
 
+    pub fn new_orb_scene(alloc: *std.mem.Allocator) !Self {
+        var scene = new(alloc, default_camera());
+        scene.camera.pos.y = 1;
+        scene.camera.pos.z = 2;
+        scene.camera.defocus = 0;
+        const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
+        const light = try scene.new_material(Material.new_light(1, 1, 1, 1));
+
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 0, .y = 1, .z = 0 },
+            0,
+            white,
+        ));
+        // Centered glowing sphere
+        try scene.shapes.append(Shape.new_sphere(
+            .{ .x = 0, .y = 0.2, .z = 0 },
+            0.5,
+            light,
+        ));
+        // Fill light for the front face
+        try scene.shapes.append(Shape.new_sphere(
+            .{ .x = 2, .y = 2, .z = 3 },
+            0.5,
+            light,
+        ));
+
+        // Initialize the RNG
+        var buf: [8]u8 = undefined;
+        try std.os.getrandom(buf[0..]);
+        const seed = std.mem.readIntLittle(u64, buf[0..8]);
+
+        var r = std.rand.DefaultPrng.init(seed);
+
+        const NUM: i32 = 4;
+        const SCALE: f32 = 0.75;
+        const SIZE: f32 = SCALE / @intToFloat(f32, NUM);
+        var x: i32 = -NUM;
+
+        try scene.shapes.append(Shape.new_sphere(
+            .{ .x = SCALE, .y = 0.2, .z = SCALE },
+            0.05,
+            light,
+        ));
+        try scene.shapes.append(Shape.new_sphere(
+            .{ .x = -SCALE, .y = 0.2, .z = SCALE },
+            0.05,
+            light,
+        ));
+        try scene.shapes.append(Shape.new_sphere(
+            .{ .x = -SCALE, .y = 0.2, .z = -SCALE },
+            0.05,
+            light,
+        ));
+        try scene.shapes.append(Shape.new_sphere(
+            .{ .x = SCALE, .y = 0.2, .z = -SCALE },
+            0.05,
+            light,
+        ));
+        while (x <= NUM) : (x += 1) {
+            var z: i32 = -NUM;
+            while (z <= NUM) : (z += 1) {
+                const h = if (std.math.absCast(x) == NUM and std.math.absCast(z) == NUM)
+                    0.1
+                else
+                    r.random.float(f32) * 0.1;
+                try scene.add_cube(
+                    .{
+                        .x = @intToFloat(f32, x) * SIZE,
+                        .y = h,
+                        .z = @intToFloat(f32, z) * SIZE,
+                    },
+                    .{ .x = 1, .y = 0, .z = 0 }, // dx
+                    .{ .x = 0, .y = 1, .z = 0 }, // dy
+                    .{ .x = SIZE, .y = 0.2, .z = SIZE }, // size
+                    white,
+                );
+            }
+        }
+        return scene;
+    }
+
     pub fn new_simple_scene(alloc: *std.mem.Allocator) !Self {
         var scene = new(alloc, default_camera());
         const white = try scene.new_material(Material.new_diffuse(1, 1, 1));

@@ -181,6 +181,9 @@ pub const Window = struct {
                 if (c.igMenuItemBool("Prism", "", false, true)) {
                     new_scene_fn = Scene.new_prism;
                 }
+                if (c.igMenuItemBool("THE ORB", "", false, true)) {
+                    new_scene_fn = Scene.new_orb_scene;
+                }
                 if (new_scene_fn) |f| {
                     const options = self.renderer.get_options();
                     self.renderer.deinit();

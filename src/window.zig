@@ -103,7 +103,7 @@ pub const Window = struct {
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
         _ = c.glfwSetWindowFocusCallback(window, focus_cb);
 
-        const scene = try Scene.new_prism(alloc);
+        const scene = try Scene.new_wave_box(alloc);
         out.* = .{
             .alloc = alloc,
             .window = window,
@@ -183,6 +183,9 @@ pub const Window = struct {
                 }
                 if (c.igMenuItemBool("THE ORB", "", false, true)) {
                     new_scene_fn = Scene.new_orb_scene;
+                }
+                if (c.igMenuItemBool("Wave", "", false, true)) {
+                    new_scene_fn = Scene.new_wave_box;
                 }
                 if (new_scene_fn) |f| {
                     const options = self.renderer.get_options();

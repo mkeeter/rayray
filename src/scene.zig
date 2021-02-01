@@ -268,6 +268,98 @@ pub const Scene = struct {
         return scene;
     }
 
+    pub fn new_white_box(alloc: *std.mem.Allocator) !Self {
+        var scene = new(alloc, default_camera());
+        const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
+        const light = try scene.new_material(Material.new_light(1, 1, 1, 6));
+
+        // Light
+        try scene.shapes.append(Shape.new_finite_plane(
+            .{ .x = 0, .y = 1, .z = 0 },
+            1.04,
+            .{ .x = 1, .y = 0, .z = 0 },
+            .{ .x = -0.25, .y = 0.25, .z = -1.0, .w = 0.25 },
+            light,
+        ));
+        // Back wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 0, .y = 0, .z = 1 },
+            -1,
+            white,
+        ));
+        // Left wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 1, .y = 0, .z = 0 },
+            -1,
+            white,
+        ));
+        // Right wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = -1, .y = 0, .z = 0 },
+            -1,
+            white,
+        ));
+        // Top wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 0, .y = -1, .z = 0 },
+            -1.05,
+            white,
+        ));
+        // Bottom wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 0, .y = 1, .z = 0 },
+            -1,
+            white,
+        ));
+        // Front wall
+        try scene.shapes.append(Shape.new_infinite_plane(
+            .{ .x = 0, .y = 0, .z = -1 },
+            -1,
+            white,
+        ));
+        return scene;
+    }
+
+    pub fn new_wave_box(alloc: *std.mem.Allocator) !Self {
+        var scene = try new_white_box(alloc);
+        scene.camera.defocus = 0;
+        scene.camera.scale = 0.4;
+        scene.camera.perspective = 1;
+
+        const m1 = try scene.new_material(Material.new_diffuse(0.4, 0.6, 0.8));
+        const m2 = try scene.new_material(Material.new_diffuse(0.8, 0.6, 0.4));
+        const NUM: i32 = 4;
+        const SCALE: f32 = 0.25;
+        const SIZE: f32 = SCALE / @intToFloat(f32, NUM);
+        var x = -NUM;
+        while (x <= NUM) : (x += 1) {
+            var z: i32 = -NUM;
+            while (z <= NUM) : (z += 1) {
+                const dy = std.math.sin(@intToFloat(f32, x) / @intToFloat(f32, NUM) * std.math.pi) +
+                    std.math.sin(@intToFloat(f32, z) / @intToFloat(f32, NUM) * std.math.pi);
+                try scene.shapes.append(Shape.new_sphere(
+                    .{
+                        .x = @intToFloat(f32, x) * SIZE,
+                        .y = -0.2 + dy / 15,
+                        .z = @intToFloat(f32, z) * SIZE * 2,
+                    },
+                    SCALE / 15,
+                    m1,
+                ));
+                try scene.shapes.append(Shape.new_sphere(
+                    .{
+                        .x = @intToFloat(f32, x) * SIZE,
+                        .y = 0.2 + dy / 15,
+                        .z = @intToFloat(f32, z) * SIZE * 2,
+                    },
+                    SCALE / 15,
+                    m2,
+                ));
+            }
+        }
+        return scene;
+    }
+
     pub fn new_cornell_box(alloc: *std.mem.Allocator) !Self {
         var scene = new(alloc, default_camera());
         scene.camera.defocus = 0;

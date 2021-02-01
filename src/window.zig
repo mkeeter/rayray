@@ -103,7 +103,7 @@ pub const Window = struct {
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
         _ = c.glfwSetWindowFocusCallback(window, focus_cb);
 
-        const scene = try Scene.new_wave_box(alloc);
+        const scene = try Scene.new_hex_box(alloc);
         out.* = .{
             .alloc = alloc,
             .window = window,
@@ -184,8 +184,11 @@ pub const Window = struct {
                 if (c.igMenuItemBool("THE ORB", "", false, true)) {
                     new_scene_fn = Scene.new_orb_scene;
                 }
-                if (c.igMenuItemBool("Wave", "", false, true)) {
-                    new_scene_fn = Scene.new_wave_box;
+                if (c.igMenuItemBool("Golden spheres", "", false, true)) {
+                    new_scene_fn = Scene.new_hex_box;
+                }
+                if (c.igMenuItemBool("Chromatic aberration test", "", false, true)) {
+                    new_scene_fn = Scene.new_cornell_aberration;
                 }
                 if (new_scene_fn) |f| {
                     const options = self.renderer.get_options();

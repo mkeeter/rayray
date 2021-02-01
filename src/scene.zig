@@ -271,7 +271,7 @@ pub const Scene = struct {
     pub fn new_white_box(alloc: *std.mem.Allocator) !Self {
         var scene = new(alloc, default_camera());
         const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
-        const light = try scene.new_material(Material.new_light(1, 1, 1, 6));
+        const light = try scene.new_material(Material.new_light(1, 1, 1, 7));
 
         // Light
         try scene.shapes.append(Shape.new_finite_plane(
@@ -320,40 +320,40 @@ pub const Scene = struct {
         return scene;
     }
 
-    pub fn new_wave_box(alloc: *std.mem.Allocator) !Self {
+    pub fn new_hex_box(alloc: *std.mem.Allocator) !Self {
         var scene = try new_white_box(alloc);
         scene.camera.defocus = 0;
         scene.camera.scale = 0.4;
         scene.camera.perspective = 1;
+        scene.camera.pos = .{ .x = 0, .y = -0.4, .z = 0.7 };
+        scene.camera.target = .{ .x = 0, .y = -0.6, .z = 0.3 };
+        scene.camera.defocus = 0.008;
+        scene.camera.focal_distance = 0.5;
 
-        const m1 = try scene.new_material(Material.new_diffuse(0.4, 0.6, 0.8));
-        const m2 = try scene.new_material(Material.new_diffuse(0.8, 0.6, 0.4));
+        const metal = try scene.new_material(Material.new_metal(1, 0.86, 0.45, 0.2));
         const NUM: i32 = 4;
-        const SCALE: f32 = 0.25;
+        const SCALE: f32 = 0.5;
         const SIZE: f32 = SCALE / @intToFloat(f32, NUM);
         var x = -NUM;
         while (x <= NUM) : (x += 1) {
             var z: i32 = -NUM;
             while (z <= NUM) : (z += 1) {
-                const dy = std.math.sin(@intToFloat(f32, x) / @intToFloat(f32, NUM) * std.math.pi) +
-                    std.math.sin(@intToFloat(f32, z) / @intToFloat(f32, NUM) * std.math.pi);
+                const dy = std.math.sin(@intToFloat(f32, x) / @intToFloat(f32, NUM) * std.math.pi);
+                var dx: f32 = 0;
+                if (@rem(z, 2) == 0) {
+                    dx = SIZE / 2;
+                    if (x == NUM) {
+                        continue;
+                    }
+                }
                 try scene.shapes.append(Shape.new_sphere(
                     .{
-                        .x = @intToFloat(f32, x) * SIZE,
-                        .y = -0.2 + dy / 15,
-                        .z = @intToFloat(f32, z) * SIZE * 2,
+                        .x = @intToFloat(f32, x) * SIZE + dx,
+                        .y = -1 + SCALE / 20,
+                        .z = @intToFloat(f32, z) * SIZE * 0.866,
                     },
-                    SCALE / 15,
-                    m1,
-                ));
-                try scene.shapes.append(Shape.new_sphere(
-                    .{
-                        .x = @intToFloat(f32, x) * SIZE,
-                        .y = 0.2 + dy / 15,
-                        .z = @intToFloat(f32, z) * SIZE * 2,
-                    },
-                    SCALE / 15,
-                    m2,
+                    SCALE / 20,
+                    metal,
                 ));
             }
         }
@@ -433,7 +433,7 @@ pub const Scene = struct {
         const blue = try scene.new_material(Material.new_diffuse(0.1, 0.1, 1));
         const green = try scene.new_material(Material.new_diffuse(0.1, 1, 0.1));
         const metal = try scene.new_material(Material.new_metal(1, 1, 0.5, 0.1));
-        const glass = try scene.new_material(Material.new_glass(1.3, 0.0013));
+        const glass = try scene.new_material(Material.new_glass(1.3, 0.0003));
         const light = try scene.new_material(Material.new_light(1, 1, 1, 4));
 
         // Light
@@ -497,6 +497,15 @@ pub const Scene = struct {
             glass,
         ));
 
+        return scene;
+    }
+
+    pub fn new_cornell_aberration(alloc: *std.mem.Allocator) !Self {
+        var scene = try new_cornell_balls(alloc);
+        scene.camera.pos = .{ .x = 0, .y = -0.6, .z = 1 };
+        scene.camera.target = .{ .x = 0, .y = -0.6, .z = 0 };
+        scene.camera.defocus = 0;
+        scene.camera.scale = 0.4;
         return scene;
     }
 

@@ -23,7 +23,7 @@ layout(local_size_x=COMPUTE_SIZE) in;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Forward declarations
-bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec3 color);
+bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec4 color);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Jenkins hash function, specialized for a uint key
@@ -146,48 +146,32 @@ vec3 norm_sphere(vec3 pos, vec3 center) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-bool mat_light(inout vec3 color, vec3 light_color) {
-    if (u.spectral != 0) {
-        color.y *= dot(WAVELENGTH_RGB[int(color.x)], light_color);
-    } else {
-        color *= light_color;
-    }
+bool mat_light(inout vec4 color, vec3 light_color) {
+    color.xyz *= light_color;
     return true;
 }
 
-bool mat_laser(inout vec3 color, inout vec3 dir,
+bool mat_laser(inout vec4 color, inout vec3 dir,
                vec3 norm, vec3 light_color, float focus)
 {
     float f = dot(-norm, dir);
     float dim = (f > focus) ? 1 : 0;
-    if (u.spectral != 0) {
-        color.y *= dot(WAVELENGTH_RGB[int(color.x)], light_color) * dim;
-    } else {
-        color *= light_color * dim;
-    }
+    color.xyz *= light_color * dim;
     return true;
 }
 
-bool mat_diffuse(inout uint seed, inout vec3 color, inout vec3 dir,
+bool mat_diffuse(inout uint seed, inout vec4 color, inout vec3 dir,
                  vec3 norm, vec3 diffuse_color)
 {
-    if (u.spectral != 0) {
-        color.y *= dot(WAVELENGTH_RGB[int(color.x)], diffuse_color);
-    } else {
-        color *= diffuse_color;
-    }
+    color.xyz *= diffuse_color;
     dir = sanitize_dir(norm + rand3_on_sphere(seed), norm);
     return false;
 }
 
-bool mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
+bool mat_metal(inout uint seed, inout vec4 color, inout vec3 dir,
                vec3 norm, vec3 metal_color, float fuzz)
 {
-    if (u.spectral != 0) {
-        color.y *= dot(WAVELENGTH_RGB[int(color.x)], metal_color);
-    } else {
-        color *= metal_color;
-    }
+    color.xyz *= metal_color;
     dir -= norm * dot(norm, dir)*2;
     if (fuzz != 0) {
         dir += rand3_on_sphere(seed) * fuzz;
@@ -201,12 +185,12 @@ bool mat_metal(inout uint seed, inout vec3 color, inout vec3 dir,
 }
 
 // This doesn't support nested materials with different etas!
-bool mat_glass(inout uint seed, vec3 color, inout vec3 dir, vec3 norm,
+bool mat_glass(inout uint seed, vec4 color, inout vec3 dir, vec3 norm,
                float eta, float slope)
 {
     // Tweak eta based on slope parameter
     if (u.spectral != 0) {
-        eta += (color.x - 150) * slope;
+        eta += (color.w - 150) * slope;
     }
     // If we're entering the shape, then decide whether to reflect
     // or refract based on the incoming angle
@@ -242,15 +226,15 @@ bool mat_glass(inout uint seed, vec3 color, inout vec3 dir, vec3 norm,
 ////////////////////////////////////////////////////////////////////////////////
 
 #define BOUNCES 6
-void bounce(vec3 pos, vec3 dir, inout uint seed, inout vec3 color) {
+vec3 bounce(vec3 pos, vec3 dir, inout uint seed, vec4 color) {
     for (int i=0; i < BOUNCES; ++i) {
         // Walk to the next object in the scene, updating the system state
         // using a set of inout variables
         if (trace(seed, pos, dir, color)) {
-            return;
+            return color.xyz;
         }
     }
-    color = vec3(0);
+    return vec3(0);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -300,29 +284,21 @@ void main() {
         // Finally, re-adjust the direction so that we hit the same target
         dir = normalize(target - start);
 
-        int wavelength;
-        vec3 color;
+        vec4 color;
         if (u.spectral != 0) {
             // Pick a random wavelength between 400 and 700 nm, offset
             //
             // This wavelength is the same for every ray in the frame,
             // so that reading WAVELENGTH_RGB isn't scattered.
-            wavelength = clamp(int(rand(frame_seed) * 150 + 150), 0, 300);
-            color = vec3(wavelength, 1, 0);
+            int wavelength = clamp(int(rand(frame_seed) * 150 + 150), 0, 300);
+            color = vec4(WAVELENGTH_RGB[wavelength], float(wavelength));
         } else {
             // Start with white
-            color = vec3(1);
+            color = vec4(1);
         }
 
         // Bounce the light around, updating the color based on what it hits
-        bounce(start, dir, seed, color);
-
-        if (u.spectral != 0) {
-            fragColor += vec4(WAVELENGTH_RGB[wavelength] * color.y
-                              * WAVELENGTH_RGB_BIAS, 1);
-        } else {
-            fragColor += vec4(color, 1);
-        }
+        fragColor += vec4(bounce(start, dir, seed, color), 1);
     }
 
     if (u.samples > 0) {

@@ -301,6 +301,10 @@ void main() {
         fragColor += vec4(bounce(seed, start, dir, color), 1);
     }
 
+    if (u.spectral != 0) {
+        fragColor *= vec4(WAVELENGTH_RGB_BIAS, 1);
+    }
+
     if (u.samples > 0) {
         image[gl_GlobalInvocationID.x] += fragColor;
     } else {

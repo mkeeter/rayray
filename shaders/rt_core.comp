@@ -84,6 +84,16 @@ vec3 sanitize_dir(vec3 dir, vec3 norm) {
     }
 }
 
+// Constructs an orthonormal basis, based on
+// "Building an Orthonormal Basis, Revisited" [Duff et al, 2017]
+mat3 onb(vec3 n) {
+    float sign = n.z < 0 ? -1.0 : 1.0;
+    float a = -1.0 / (sign + n.z);
+    float b = n.x * n.y * a;
+    vec3 b1 = vec3(1.0 + sign * n.x * n.x * a, sign * b, -sign * n.x);
+    vec3 b2 = vec3(b, sign + n.y * n.y * a, -n.y);
+    return mat3(n, b1, b2);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 float hit_plane(vec3 start, vec3 dir, vec3 norm, float off) {

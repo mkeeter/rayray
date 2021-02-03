@@ -17,6 +17,7 @@ pub fn build(b: *Builder) void {
 
     // Libraries!
     exe.linkSystemLibrary("glfw3");
+    exe.linkSystemLibrary("png");
     exe.linkSystemLibrary("freetype2");
     exe.linkSystemLibrary("stdc++"); // needed for shaderc
 

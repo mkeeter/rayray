@@ -163,6 +163,7 @@ pub const Window = struct {
 
         var menu_width: f32 = 0;
         var menu_height: f32 = 0;
+        var save_img = false;
         if (c.igBeginMainMenuBar()) {
             if (c.igBeginMenu("Scene", true)) {
                 var new_scene_fn: ?fn (alloc: *std.mem.Allocator) anyerror!Scene = null;
@@ -199,9 +200,10 @@ pub const Window = struct {
                 }
                 c.igEndMenu();
             }
-            if (c.igBeginMenu("View", true)) {
+            if (c.igBeginMenu("Edit", true)) {
                 _ = c.igMenuItemBoolPtr("Show editor", "", &self.show_editor, true);
                 _ = c.igMenuItemBoolPtr("Show GUI demo", "", &self.show_gui_demo, true);
+                _ = c.igMenuItemBoolPtr("Save out.png", "", &save_img, true);
                 c.igEndMenu();
             }
             menu_height = c.igGetWindowHeight() - 1;
@@ -251,6 +253,10 @@ pub const Window = struct {
         c.wgpu_queue_submit(self.queue, &cmd_buf, 1);
 
         _ = c.wgpu_swap_chain_present(self.swap_chain);
+
+        if (save_img) {
+            try self.renderer.save_png();
+        }
     }
 
     pub fn run(self: *Self) !void {

@@ -2,6 +2,7 @@ const std = @import("std");
 
 const c = @import("c.zig");
 const shaderc = @import("shaderc.zig");
+const png = @import("png.zig");
 
 const AsyncShaderc = @import("async_shaderc.zig").AsyncShaderc;
 const Blit = @import("blit.zig").Blit;
@@ -398,7 +399,7 @@ pub const Renderer = struct {
             &(c.WGPUBufferDescriptor){
                 .label = "image buf",
                 .size = self.image_buf_size,
-                .usage = c.WGPUBufferUsage_STORAGE,
+                .usage = c.WGPUBufferUsage_STORAGE | c.WGPUBufferUsage_COPY_SRC,
                 .mapped_at_creation = false,
             },
         );
@@ -421,4 +422,57 @@ pub const Renderer = struct {
             }
         }
     }
+
+    pub fn save_png(self: *const Self) !void {
+        const tmp_buf = c.wgpu_device_create_buffer(
+            self.device,
+            &(c.WGPUBufferDescriptor){
+                .label = "tmp png buffer",
+                .size = self.image_buf_size,
+                .usage = c.WGPUBufferUsage_COPY_DST | c.WGPUBufferUsage_MAP_READ,
+                .mapped_at_creation = false,
+            },
+        );
+        defer c.wgpu_buffer_destroy(tmp_buf, true);
+
+        const cmd_encoder = c.wgpu_device_create_command_encoder(
+            self.device,
+            &(c.WGPUCommandEncoderDescriptor){ .label = "png save encoder" },
+        );
+        c.wgpu_command_encoder_copy_buffer_to_buffer(
+            cmd_encoder,
+            self.image_buf,
+            0,
+            tmp_buf,
+            0,
+            self.image_buf_size,
+        );
+        const cmd_buf = c.wgpu_command_encoder_finish(cmd_encoder, null);
+        c.wgpu_queue_submit(self.queue, &cmd_buf, 1);
+
+        c.wgpu_buffer_map_read_async(
+            tmp_buf,
+            0,
+            self.image_buf_size,
+            read_buffer_map_cb,
+            null,
+        );
+        c.wgpu_device_poll(self.device, true);
+        const ptr = c.wgpu_buffer_get_mapped_range(
+            tmp_buf,
+            0,
+            self.image_buf_size,
+        );
+        const data = @ptrCast([*]const f32, @alignCast(4, ptr));
+        try png.save_png(
+            self.alloc,
+            data,
+            @intToFloat(f32, self.uniforms.samples),
+            self.uniforms.width_px,
+            self.uniforms.height_px,
+        );
+        c.wgpu_buffer_unmap(tmp_buf);
+    }
 };
+
+export fn read_buffer_map_cb(status: c.WGPUBufferMapAsyncStatus, userdata: [*c]u8) void {}

@@ -2,18 +2,22 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 pub usingnamespace @cImport({
-    // GLFW
+    // System libraries
     @cInclude("GLFW/glfw3.h");
+    @cInclude("png.h");
 
+    // Vendored libraries
     @cInclude("wgpu/wgpu.h");
     @cInclude("shaderc/shaderc.h");
 
+    // Dear ImGui
     @cDefine("CIMGUI_DEFINE_ENUMS_AND_STRUCTS", "");
     @cDefine("ImDrawIdx", "unsigned int"); // index buffer must be 4-aligned
     @cInclude("cimgui/cimgui.h");
     @cInclude("cimgui/generator/output/cimgui_impl.h");
     @cInclude("cimgui_ft/cimgui_ft.h");
 
+    // Shared C/GLSL structs
     @cInclude("extern/rayray.h");
 
     if (builtin.os.tag == .macos) {

@@ -60,6 +60,7 @@ export fn include_cb(
 
         return out;
     };
+    defer file.close();
 
     const size = file.getEndPos() catch |err| {
         std.debug.panic("Could not get end position of file: {}", .{err});

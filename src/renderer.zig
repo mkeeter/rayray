@@ -91,7 +91,7 @@ pub const Renderer = struct {
                 .offset_y = 0,
 
                 .samples = 0,
-                .samples_per_frame = options.samples_per_frame,
+                .samples_per_frame = 1,
 
                 .spectral = if (options.spectral) 1 else 0,
                 ._padding = undefined,
@@ -144,7 +144,7 @@ pub const Renderer = struct {
 
     pub fn get_options(self: *const Self) Options {
         return .{
-            .samples_per_frame = self.uniforms.samples_per_frame,
+            .total_samples = null,
             .width = self.uniforms.width_px,
             .height = self.uniforms.height_px,
             .spectral = self.uniforms.spectral != 0,

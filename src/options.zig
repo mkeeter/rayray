@@ -1,21 +1,21 @@
 const std = @import("std");
 
 pub const Options = struct {
-    samples_per_frame: u32,
+    total_samples: ?u32,
     width: u32,
     height: u32,
     spectral: bool,
 
     fn print_help() !void {
         const stdout = std.io.getStdOut().writer();
-        try stdout.print("rayray [-h] [-n samples_per_frame]\n", .{});
+        try stdout.print("rayray [-h] [-n total_samples]\n", .{});
     }
     pub fn parse_args(alloc: *std.mem.Allocator) !Options {
         const args = try std.process.argsAlloc(alloc);
         defer std.process.argsFree(alloc, args);
 
         var out = Options{
-            .samples_per_frame = 1,
+            .total_samples = null,
             .width = 600,
             .height = 623, // includes menu height
             .spectral = false,
@@ -32,7 +32,7 @@ pub const Options = struct {
                     std.process.exit(1);
                 } else {
                     if (std.fmt.parseUnsigned(u32, args[i], 10)) |s| {
-                        out.samples_per_frame = s;
+                        out.total_samples = s;
                     } else |err| {
                         std.debug.print("Error: {} is not an integer", .{args[i]});
                         std.process.exit(1);

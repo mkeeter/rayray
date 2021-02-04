@@ -29,6 +29,7 @@ pub const Window = struct {
     focused: bool,
     show_editor: bool,
     show_gui_demo: bool,
+    total_samples: ?u32,
 
     pub fn init(alloc: *std.mem.Allocator, options_: Options, name: [*c]const u8) !*Self {
         const window = c.glfwCreateWindow(
@@ -116,6 +117,7 @@ pub const Window = struct {
             .debounce = Debounce.init(),
             .show_editor = false,
             .show_gui_demo = false,
+            .total_samples = options.total_samples,
             .focused = false,
         };
         out.resize_swap_chain(options.width, options.height);
@@ -262,6 +264,13 @@ pub const Window = struct {
     pub fn run(self: *Self) !void {
         while (!self.should_close()) {
             try self.draw();
+
+            if (self.total_samples) |n| {
+                if (self.renderer.uniforms.samples >= n) {
+                    return self.renderer.save_png();
+                }
+            }
+
             if (self.focused) {
                 c.glfwPollEvents();
             } else {

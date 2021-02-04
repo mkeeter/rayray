@@ -34,9 +34,9 @@ pub fn save_png(
         var x: usize = 0;
         const d = (height - y - 1) * width * 4;
         while (x < width) : (x += 1) {
-            row[x * 3 + 0] = @floatToInt(u8, std.math.clamp(data[d + x * 4 + 0] / samples, 0, 1) * 255);
-            row[x * 3 + 1] = @floatToInt(u8, std.math.clamp(data[d + x * 4 + 1] / samples, 0, 1) * 255);
-            row[x * 3 + 2] = @floatToInt(u8, std.math.clamp(data[d + x * 4 + 2] / samples, 0, 1) * 255);
+            row[x * 3 + 0] = @floatToInt(u8, std.math.sqrt(std.math.clamp(data[d + x * 4 + 0] / samples, 0, 1)) * 255);
+            row[x * 3 + 1] = @floatToInt(u8, std.math.sqrt(std.math.clamp(data[d + x * 4 + 1] / samples, 0, 1)) * 255);
+            row[x * 3 + 2] = @floatToInt(u8, std.math.sqrt(std.math.clamp(data[d + x * 4 + 2] / samples, 0, 1)) * 255);
         }
         c.png_write_row(png_ptr, row.ptr);
     }

@@ -126,6 +126,10 @@ pub const Laser = struct {
     }
 };
 
+pub const Metaflat = struct {
+    // Nothing in the struct
+};
+
 pub const Material = union(enum) {
     const Self = @This();
 
@@ -134,6 +138,7 @@ pub const Material = union(enum) {
     Metal: Metal,
     Glass: Glass,
     Laser: Laser,
+    Metaflat: Metaflat,
 
     pub fn tag(self: Self) u32 {
         return switch (self) {
@@ -142,6 +147,7 @@ pub const Material = union(enum) {
             .Metal => c.MAT_METAL,
             .Glass => c.MAT_GLASS,
             .Laser => c.MAT_LASER,
+            .Metaflat => c.MAT_METAFLAT,
         };
     }
 
@@ -182,6 +188,12 @@ pub const Material = union(enum) {
         };
     }
 
+    pub fn new_metaflat() Self {
+        return .{
+            .Metaflat = .{},
+        };
+    }
+
     pub fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
         // We don't encode the tag here, because we can put it into the Shape
         // header to save space.
@@ -191,6 +203,7 @@ pub const Material = union(enum) {
             .Metal => |m| m.encode(buf),
             .Glass => |m| m.encode(buf),
             .Laser => |m| m.encode(buf),
+            .Metaflat => {},
         };
     }
 
@@ -201,6 +214,7 @@ pub const Material = union(enum) {
             .Metal => |m| m.color,
             .Glass => |m| Color{ .r = 1, .g = 0.5, .b = 0.5 },
             .Laser => |m| m.color,
+            .Metaflat => |m| Color{ .r = 1, .g = 0.5, .b = 0.5 },
         };
     }
 
@@ -241,6 +255,9 @@ pub const Material = union(enum) {
                         .focus = 0.5,
                     },
                 },
+                .Metaflat => self.* = .{
+                    .Metaflat = .{},
+                },
             }
         }
 
@@ -250,6 +267,7 @@ pub const Material = union(enum) {
             .Metal => |*d| d.draw_gui(),
             .Glass => |*d| d.draw_gui(),
             .Laser => |*d| d.draw_gui(),
+            .Metaflat => false,
         } or changed;
 
         return changed;

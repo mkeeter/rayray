@@ -74,6 +74,11 @@ vec2 rand2_in_circle(inout uint seed) {
     return r * vec2(cos(t), sin(t));
 }
 
+vec2 rand2_on_circle(inout uint seed) {
+    float t = PI * rand(seed);
+    return vec2(cos(t), sin(t));
+}
+
 // Normalize, snapping to the normal if the vector is pathologically short
 vec3 sanitize_dir(vec3 dir, vec3 norm) {
     float len = dot(dir, dir);
@@ -232,6 +237,18 @@ bool mat_glass(inout uint seed, vec4 color, inout vec3 dir, vec3 norm,
     }
     return false;
 }
+
+// A metaflat material ignores the incoming ray's direction and scatters it
+// parallel to the surface normal.  A metaflat backplane can turn a 3D scene
+// into a 2D scene; it's used in the prism spectral demo.
+bool mat_metaflat(inout uint seed, inout vec3 dir, vec3 norm)
+{
+    vec2 v = rand2_on_circle(seed);
+    mat3 M = onb(norm);
+    dir = v.x * M[1] + v.y * M[2];
+    return false;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 

@@ -35,7 +35,8 @@ typedef struct {
 #define MAT_METAL 3
 #define MAT_GLASS 4
 #define MAT_LASER 5
-#define LAST_MAT 6
+#define MAT_METAFLAT 6
+#define LAST_MAT 7
 
 ////////////////////////////////////////////////////////////////////////////////
 

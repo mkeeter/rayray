@@ -668,9 +668,9 @@ pub const Scene = struct {
         scene.camera.perspective = 0;
         scene.camera.defocus = 0;
         scene.camera.up = .{ .x = -1, .y = 0, .z = 0 };
-        const light = try scene.new_material(Material.new_laser(1, 1, 1, 400, 0.99));
-        const glass = try scene.new_material(Material.new_glass(1.3, 0.0013));
-        const white = try scene.new_material(Material.new_diffuse(1, 1, 1));
+        const light = try scene.new_material(Material.new_laser(1, 1, 1, 200, 0.999));
+        const glass = try scene.new_material(Material.new_glass(1.36, 0.001));
+        const white = try scene.new_material(Material.new_metaflat());
 
         // Back wall
         try scene.shapes.append(Shape.new_infinite_plane(
@@ -679,26 +679,49 @@ pub const Scene = struct {
             white,
         ));
         try scene.shapes.append(Shape.new_finite_plane(
-            .{ .x = 0, .y = 1, .z = 0 },
+            .{ .x = -0.259, .y = 0.966, .z = 0 },
             -1,
-            .{ .x = 1, .y = 0, .z = 0 },
-            .{ .x = -0.01, .y = 0.01, .z = -1, .w = 1 },
+            .{ .x = 0, .y = 0, .z = 1 },
+            .{ .x = -1, .y = 1, .z = -0.01, .w = 0.01 },
             light,
         ));
         try scene.shapes.append(Shape.new_finite_plane(
-            .{ .x = -0.394, .y = -0.919, .z = 0 },
+            .{ .x = -0.5, .y = -0.8660254037, .z = 0 },
             0.3,
             .{ .x = 1, .y = 0, .z = 0 },
             .{ .x = -0.6, .y = 0.35, .z = -1, .w = 1 },
             glass,
         ));
         try scene.shapes.append(Shape.new_finite_plane(
-            .{ .x = -0.394, .y = 0.919, .z = 0 },
+            .{ .x = -0.5, .y = 0.8660254037, .z = 0 },
             0.3,
             .{ .x = 1, .y = 0, .z = 0 },
             .{ .x = -0.6, .y = 0.35, .z = -1, .w = 1 },
             glass,
         ));
+        // Build a triangle
+        try scene.shapes.append(Shape.new_finite_plane(
+            .{ .x = 0, .y = 0, .z = 1 },
+            0,
+            .{ .x = 1, .y = 0, .z = 0 },
+            .{ .x = 0.6, .y = 0.605, .z = -0.7, .w = 0.7 },
+            light,
+        ));
+        try scene.shapes.append(Shape.new_finite_plane(
+            .{ .x = 0, .y = 0, .z = 1 },
+            0,
+            .{ .x = -0.5, .y = 0.8660254037, .z = 0 },
+            .{ .x = 0.3, .y = 0.305, .z = -0.87, .w = 0.525 },
+            light,
+        ));
+        try scene.shapes.append(Shape.new_finite_plane(
+            .{ .x = 0, .y = 0, .z = 1 },
+            0,
+            .{ .x = 0.5, .y = 0.8660254037, .z = 0 },
+            .{ .x = -0.305, .y = -0.3, .z = -0.87, .w = 0.525 },
+            light,
+        ));
+
         return scene;
     }
 
@@ -1019,6 +1042,7 @@ pub const Scene = struct {
                     \\{s}
                     \\                vec4({}, {}, {}, {}),
                 , .{ laser_data, s.color.r * s.intensity, s.color.g * s.intensity, s.color.b * s.intensity, s.focus }),
+                .Metaflat => {},
             }
         }
 
@@ -1090,6 +1114,10 @@ pub const Scene = struct {
             \\            }};
             \\            vec4 m = data[key.w];
             \\            return mat_laser(color, dir, norm, m.xyz, m.w);
+            \\        }}
+            \\        case MAT_METAFLAT: {{
+            \\            // No parameters
+            \\            return mat_metaflat(seed, dir, norm);
             \\        }}
             \\    }}
             \\

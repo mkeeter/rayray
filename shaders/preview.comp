@@ -38,9 +38,17 @@ bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec4 color) {
                 break;
             }
             case SHAPE_CYLINDER: {
-                vec4 c = scene_data[offset];
-                vec4 v = scene_data[offset + 1];
-                dist = hit_cylinder(pos, dir, c.xyz, v.xyz, c.w);
+                vec4 cyl_pos = scene_data[offset];
+                vec4 cyl_dir = scene_data[offset + 1];
+                dist = hit_cylinder(pos, dir, cyl_pos.xyz, cyl_dir.xyz, cyl_pos.w);
+                break;
+            }
+            case SHAPE_CAPPED_CYLINDER: {
+                vec4 cyl_pos = scene_data[offset];
+                vec4 cyl_dir = scene_data[offset + 1];
+                dist = hit_capped_cylinder(pos, dir, cyl_pos.xyz, cyl_dir.xyz,
+                                           cyl_pos.w, cyl_dir.w);
+                break;
             }
             default: // unimplemented shape
                 continue;
@@ -72,6 +80,18 @@ bool trace(inout uint seed, inout vec3 pos, inout vec3 dir, inout vec4 color) {
         case SHAPE_FINITE_PLANE: {
             vec4 d = scene_data[offset];
             norm = norm_plane(d.xyz);
+            break;
+        }
+        case SHAPE_CYLINDER: {
+            vec4 cyl_pos = scene_data[offset];
+            vec4 cyl_dir = scene_data[offset + 1];
+            norm = norm_cylinder(pos, cyl_pos.xyz, cyl_dir.xyz);
+            break;
+        }
+        case SHAPE_CAPPED_CYLINDER: {
+            vec4 cyl_pos = scene_data[offset];
+            vec4 cyl_dir = scene_data[offset + 1];
+            norm = norm_capped_cylinder(pos, cyl_pos.xyz, cyl_dir.xyz, cyl_dir.w);
             break;
         }
     }

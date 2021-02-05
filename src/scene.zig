@@ -907,22 +907,55 @@ pub const Scene = struct {
                     "hit_sphere(pos, dir, vec3({}, {}, {}), {})",
                     .{ s.center.x, s.center.y, s.center.z, s.radius },
                 ),
-                .InfinitePlane => |s| std.fmt.allocPrint(
-                    tmp_alloc,
-                    "hit_plane(pos, dir,  vec3({}, {}, {}), {})",
-                    .{ s.normal.x, s.normal.y, s.normal.z, s.offset },
-                ),
-                .FinitePlane => |s| std.fmt.allocPrint(
-                    tmp_alloc,
-                    \\hit_finite_plane(pos, dir,  vec3({}, {}, {}), {},
-                    \\                 vec3({}, {}, {}), vec4({}, {}, {}, {}))
-                ,
-                    .{
-                        s.normal.x, s.normal.y, s.normal.z, s.offset,
-                        s.q.x,      s.q.y,      s.q.z,      s.bounds.x,
-                        s.bounds.y, s.bounds.z, s.bounds.w,
-                    },
-                ),
+                .InfinitePlane => |s| plane: {
+                    const norm = vec3.normalize(s.normal);
+                    break :plane std.fmt.allocPrint(
+                        tmp_alloc,
+                        "hit_plane(pos, dir,  vec3({}, {}, {}), {})",
+                        .{ norm.x, norm.y, norm.z, s.offset },
+                    );
+                },
+                .FinitePlane => |s| plane: {
+                    const norm = vec3.normalize(s.normal);
+                    const q = vec3.normalize(s.q);
+                    break :plane std.fmt.allocPrint(
+                        tmp_alloc,
+                        \\hit_finite_plane(pos, dir,  vec3({}, {}, {}), {},
+                        \\                 vec3({}, {}, {}), vec4({}, {}, {}, {}))
+                    ,
+                        .{
+                            norm.x,     norm.y,     norm.z,     s.offset,
+                            q.x,        q.y,        q.z,        s.bounds.x,
+                            s.bounds.y, s.bounds.z, s.bounds.w,
+                        },
+                    );
+                },
+                .Cylinder => |s| cyl: {
+                    const dir = vec3.normalize(s.dir);
+                    break :cyl std.fmt.allocPrint(tmp_alloc,
+                        \\hit_cylinder(pos, dir,  vec3({}, {}, {}),
+                        \\             vec3({}, {}, {}),  {})
+                    , .{
+                        s.pos.x,  s.pos.y, s.pos.z,
+                        dir.x,    dir.y,   dir.z,
+                        s.radius,
+                    });
+                },
+                .CappedCylinder => |s| capped: {
+                    const delta = vec3.sub(s.end, s.pos);
+                    const dir = vec3.normalize(delta);
+                    break :capped std.fmt.allocPrint(
+                        tmp_alloc,
+                        \\hit_capped_cylinder(pos, dir,  vec3({}, {}, {}),
+                        \\                    vec3({}, {}, {}),  {}, {})
+                    ,
+                        .{
+                            s.pos.x,  s.pos.y,            s.pos.z,
+                            dir.x,    dir.y,              dir.z,
+                            s.radius, vec3.length(delta),
+                        },
+                    );
+                },
             };
 
             out = try std.fmt.allocPrint(
@@ -996,6 +1029,8 @@ pub const Scene = struct {
         var sphere_data: []u8 = "";
         var plane_data: []u8 = "";
         var finite_plane_data: []u8 = "";
+        var cylinder_data: []u8 = "";
+        var capped_cylinder_data: []u8 = "";
 
         var diffuse_data: []u8 = "";
         var light_data: []u8 = "";
@@ -1009,14 +1044,44 @@ pub const Scene = struct {
                     \\{s}
                     \\                vec3({}, {}, {}),
                 , .{ sphere_data, s.center.x, s.center.y, s.center.z }),
-                .InfinitePlane => |s| plane_data = try std.fmt.allocPrint(tmp_alloc,
-                    \\{s}
-                    \\                vec3({}, {}, {}),
-                , .{ plane_data, s.normal.x, s.normal.y, s.normal.z }),
-                .FinitePlane => |s| finite_plane_data = try std.fmt.allocPrint(tmp_alloc,
-                    \\{s}
-                    \\                vec3({}, {}, {}),
-                , .{ finite_plane_data, s.normal.x, s.normal.y, s.normal.z }),
+                .InfinitePlane => |s| {
+                    const norm = vec3.normalize(s.normal);
+                    plane_data = try std.fmt.allocPrint(tmp_alloc,
+                        \\{s}
+                        \\                vec3({}, {}, {}),
+                    , .{ plane_data, norm.x, norm.y, norm.z });
+                },
+                .FinitePlane => |s| {
+                    const norm = vec3.normalize(s.normal);
+                    finite_plane_data = try std.fmt.allocPrint(tmp_alloc,
+                        \\{s}
+                        \\                vec3({}, {}, {}),
+                    , .{ finite_plane_data, norm.x, norm.y, norm.z });
+                },
+                .Cylinder => |s| {
+                    const dir = vec3.normalize(s.dir);
+                    cylinder_data = try std.fmt.allocPrint(tmp_alloc,
+                        \\{s}
+                        \\                vec3({}, {}, {}),
+                        \\                vec3({}, {}, {}),
+                    , .{
+                        cylinder_data, s.pos.x, s.pos.y, s.pos.z,
+                        dir.x,         dir.y,   dir.z,
+                    });
+                },
+                .CappedCylinder => |s| {
+                    const delta = vec3.sub(s.end, s.pos);
+                    const dir = vec3.normalize(delta);
+                    capped_cylinder_data = try std.fmt.allocPrint(tmp_alloc,
+                        \\{s}
+                        \\            vec4({}, {}, {}, {}),
+                        \\            vec4({}, {}, {}, {}),
+                    , .{
+                        capped_cylinder_data, s.pos.x, s.pos.y, s.pos.z,
+                        s.radius,             dir.x,   dir.y,   dir.z,
+                        vec3.length(delta),
+                    });
+                },
             }
         }
 
@@ -1075,6 +1140,24 @@ pub const Scene = struct {
             \\            norm = norm_plane(data[key.y]);
             \\            break;
             \\        }}
+            \\        case SHAPE_CYLINDER: {{
+            \\            // Cylinder centers
+            \\            const vec3 data[] = {{
+            \\                vec3(0), // Dummy{s}
+            \\            }};
+            \\            norm = norm_cylinder(pos, data[key.y*2 - 1], data[key.y*2]);
+            \\            break;
+            \\        }}
+            \\        case SHAPE_CAPPED_CYLINDER: {{
+            \\            // Cylinder centers
+            \\            const vec4 data[] = {{
+            \\                vec4(0), // Dummy{s}
+            \\            }};
+            \\            norm = norm_capped_cylinder(
+            \\                pos, data[key.y*2 - 1].xyz,
+            \\                data[key.y*2].xyz, data[key.y*2].w);
+            \\            break;
+            \\        }}
             \\    }}
             \\
             \\    // Calculate material behavior based on mat type and sub-index
@@ -1130,6 +1213,8 @@ pub const Scene = struct {
             sphere_data,
             plane_data,
             finite_plane_data,
+            cylinder_data,
+            capped_cylinder_data,
             diffuse_data,
             light_data,
             metal_data,

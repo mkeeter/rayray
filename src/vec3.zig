@@ -1,8 +1,12 @@
 const std = @import("std");
 const c = @import("c.zig");
 
+pub fn add(a: c.vec3, b: c.vec3) c.vec3 {
+    return .{ .x = a.x + b.x, .y = a.y + b.y, .z = a.z + b.z };
+}
+
 pub fn sub(a: c.vec3, b: c.vec3) c.vec3 {
-    return .{ .x = a.x + b.x, .y = a.x + b.y, .z = a.z + b.z };
+    return .{ .x = a.x - b.x, .y = a.y - b.y, .z = a.z - b.z };
 }
 
 pub fn length(a: c.vec3) f32 {
@@ -11,7 +15,10 @@ pub fn length(a: c.vec3) f32 {
 
 pub fn normalize(a: c.vec3) c.vec3 {
     const d = length(a);
-    return .{ .x = a.x / d, .y = a.y / d, .z = a.z / d };
+    return if (d == 0)
+        .{ .x = 0, .y = 0, .z = 0 }
+    else
+        .{ .x = a.x / d, .y = a.y / d, .z = a.z / d };
 }
 
 pub fn cross(a: c.vec3, b: c.vec3) c.vec3 {
@@ -28,4 +35,13 @@ pub fn neg(a: c.vec3) c.vec3 {
 
 pub fn dot(a: c.vec3, b: c.vec3) f32 {
     return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+pub fn to_vec4(a: c.vec3, w: f32) c.vec4 {
+    return .{ .x = a.x, .y = a.y, .z = a.z, .w = w };
+}
+
+pub fn norm_to_vec4(a: c.vec3, w: f32) c.vec4 {
+    const n = normalize(a);
+    return .{ .x = n.x, .y = n.y, .z = n.z, .w = w };
 }

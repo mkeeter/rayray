@@ -63,6 +63,20 @@ pub const Shape = struct {
                         .bounds = .{ .x = -1, .y = 1, .z = -1, .w = 1 },
                     },
                 },
+                .Cylinder => self.prim = .{
+                    .Cylinder = .{
+                        .pos = .{ .x = 0, .y = 0, .z = 0 },
+                        .dir = .{ .x = 0, .y = 1, .z = 0 },
+                        .radius = 0.2,
+                    },
+                },
+                .CappedCylinder => self.prim = .{
+                    .CappedCylinder = .{
+                        .pos = .{ .x = 0, .y = 0, .z = 0 },
+                        .end = .{ .x = 0.5, .y = 1, .z = 0 },
+                        .radius = 0.2,
+                    },
+                },
             }
         }
         var mat: c_int = @intCast(c_int, self.mat);

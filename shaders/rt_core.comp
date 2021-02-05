@@ -159,7 +159,7 @@ float hit_cylinder(vec3 start, vec3 dir, vec3 cyl_start, vec3 cyl_dir, float r)
     float A = dot(A_, A_);
     float B = 2 * dot(dir - dot(dir, cyl_dir) * cyl_dir,
                       dp - dot(dp, cyl_dir) * cyl_dir);
-    vec3 C_ = (dp - dot(dp, cyl_dir) * cyl_dir);
+    vec3 C_ = dp - dot(dp, cyl_dir) * cyl_dir;
     float C = dot(C_, C_) - r*r;
 
     float det = B*B - 4*A*C;
@@ -168,6 +168,7 @@ float hit_cylinder(vec3 start, vec3 dir, vec3 cyl_start, vec3 cyl_dir, float r)
     } else if (det == 0) {
         return -B / (2*A);
     } else {
+        det = sqrt(det);
         float d1 = (-B + det) / (2*A);
         float d2 = (-B - det) / (2*A);
         if (d1 <= SURFACE_EPSILON) {
@@ -180,12 +181,78 @@ float hit_cylinder(vec3 start, vec3 dir, vec3 cyl_start, vec3 cyl_dir, float r)
     }
 }
 
+float hit_capped_cylinder(vec3 start, vec3 dir, vec3 cyl_start, vec3 cyl_dir,
+                          float r, float h)
+{
+    float dc = hit_cylinder(start, dir, cyl_start, cyl_dir, r);
+
+    float pos_on_cyl = dot(start + dir * dc - cyl_start, cyl_dir);
+    if (pos_on_cyl < 0 || pos_on_cyl > h) {
+        dc = -1;
+    }
+
+    // Projection of the ray direction along the cylinder
+    float norm = dot(dir, cyl_dir);
+
+    // Distance from the ray start to the base of the cylinder
+    float dist_to_near = dot(cyl_start - start, cyl_dir);
+
+    // Distance the ray must travel in dir to hit the cylinder base
+    float ray_dist_to_near = dist_to_near / norm;
+
+    // Hit point on the cylinder base
+    vec3 hit_near = start + ray_dist_to_near * dir;
+
+    // Offset from the near cap, which should be orthogonal to cyl_dir
+    vec3 offset_near = hit_near - cyl_start;
+    float r_near_2 = dot(offset_near, offset_near);
+    if (r_near_2 <= r*r) {
+        if (dc == -1) {
+            dc = ray_dist_to_near;
+        } else {
+            dc = min(dc, ray_dist_to_near);
+        }
+    }
+
+    // Then the hit against the second cap
+    float ray_dist_to_far = ray_dist_to_near + h / norm;
+    vec3 hit_far = start + ray_dist_to_far * dir;
+    vec3 offset_far = hit_far - (cyl_start + h * cyl_dir);
+    float r_far_2 = dot(offset_far, offset_far);
+    if (r_far_2 <= r*r) {
+        if (dc == -1) {
+            dc = ray_dist_to_far;
+        } else {
+            dc = min(dc, ray_dist_to_far);
+        }
+    }
+
+    return dc;
+}
+
 vec3 norm_plane(vec3 norm) {
     return norm;
 }
 
 vec3 norm_sphere(vec3 pos, vec3 center) {
     return normalize(pos - center);
+}
+
+vec3 norm_cylinder(vec3 pos, vec3 cyl_pos, vec3 cyl_dir) {
+    vec3 dp = pos - cyl_pos;
+    return normalize(dp - dot(dp, cyl_dir) * cyl_dir);
+}
+
+vec3 norm_capped_cylinder(vec3 pos, vec3 cyl_pos, vec3 cyl_dir, float h) {
+    vec3 dp = pos - cyl_pos;
+    float d = dot(dp, cyl_dir);
+    if (d < 0) {
+        return -cyl_dir;
+    } else if (d > h) {
+        return cyl_dir;
+    } else {
+        return normalize(dp - dot(dp, cyl_dir) * cyl_dir);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

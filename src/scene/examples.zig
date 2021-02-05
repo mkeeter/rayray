@@ -580,3 +580,18 @@ pub fn new_prism(alloc: *std.mem.Allocator) !Scene {
 
     return scene;
 }
+
+pub fn new_caffeine(alloc: *std.mem.Allocator) !Scene {
+    var scene = try @import("mol.zig").from_mol_file(alloc, "data/caffeine.mol");
+    scene.camera.defocus = 0;
+    scene.camera.pos.z = 2;
+    scene.camera.perspective = 0.1;
+    scene.camera.scale = 5;
+
+    const light = try scene.new_material(Material.new_light(1, 1, 1, 5));
+    try scene.shapes.append(
+        Shape.new_sphere(.{ .x = 3.5, .y = 4.5, .z = 10 }, 5, light),
+    );
+
+    return scene;
+}

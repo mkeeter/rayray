@@ -151,6 +151,36 @@ float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     }
 }
 
+float hit_cylinder(vec3 start, vec3 dir, vec3 cyl_start, vec3 cyl_dir,
+                   float r, float h)
+{
+    // https://mrl.cs.nyu.edu/~dzorin/rendering/lectures/lecture3/lecture3.pdf
+    vec3 dp = start - cyl_start;
+    vec3 A_ = (dir - dot(dir, cyl_dir) * cyl_dir);
+    float A = dot(A_, A_);
+    float B = 2 * dot(dir - dot(dir, cyl_dir) * cyl_dir,
+                      dp - dot(dp, cyl_dir) * cyl_dir);
+    vec3 C_ = (dp - dot(dp, cyl_dir) * cyl_dir);
+    float C = dot(C_, C_) - r*r;
+
+    float det = B*B - 4*A*C;
+    if (det < 0) {
+        return -1;
+    } else if (det == 0) {
+        return -B / (2*A);
+    } else {
+        float d1 = (-B + det) / (2*A);
+        float d2 = (-B - det) / (2*A);
+        if (d1 <= SURFACE_EPSILON) {
+            return d2;
+        } else if (d2 <= SURFACE_EPSILON) {
+            return d1;
+        } else {
+            return min(d1, d2);
+        }
+    }
+}
+
 vec3 norm_plane(vec3 norm) {
     return norm;
 }

@@ -60,7 +60,7 @@ pub const Backend = struct {
         // must be const).
         const font_ttf: []u8 = try alloc.dupe(
             u8,
-            try util.file_contents(tmp_alloc, "font/Inconsolata-Regular.ttf"),
+            try util.file_contents(&arena, "font/Inconsolata-Regular.ttf"),
         );
 
         ////////////////////////////////////////////////////////////////////////

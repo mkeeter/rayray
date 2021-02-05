@@ -84,7 +84,9 @@ export fn include_release_cb(user_data: ?*c_void, include_result: ?*c.shaderc_in
 }
 
 pub fn build_shader_from_file(alloc: *std.mem.Allocator, comptime name: []const u8) ![]u32 {
-    const buf = try util.file_contents(alloc, name);
+    var arena = std.heap.ArenaAllocator.init(alloc);
+    defer arena.deinit();
+    const buf = try util.file_contents(&arena, name);
     return build_shader(alloc, name, buf);
 }
 

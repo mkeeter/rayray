@@ -83,5 +83,21 @@ pub fn from_mol(alloc: *std.mem.Allocator, txt: []const u8) !Scene {
         );
     }
 
+    const bond_mat = try scene.new_material(Material.new_diffuse(0.3, 0.3, 0.3));
+    i = 0;
+    while (i < n_bonds) : (i += 1) {
+        const line = iter.next() orelse std.debug.panic("Missing bond\n", .{});
+        var line_iter = std.mem.tokenize(line, " ");
+        const a = try std.fmt.parseInt(u32, line_iter.next() orelse "", 10);
+        const b = try std.fmt.parseInt(u32, line_iter.next() orelse "", 10);
+        const n = try std.fmt.parseInt(u32, line_iter.next() orelse "", 10);
+        try scene.shapes.append(Shape.new_capped_cylinder(
+            scene.shapes.items[a - 1].prim.Sphere.center,
+            scene.shapes.items[b - 1].prim.Sphere.center,
+            0.1,
+            bond_mat,
+        ));
+    }
+
     return scene;
 }

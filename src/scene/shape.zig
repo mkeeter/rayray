@@ -34,6 +34,20 @@ pub const Shape = struct {
         };
     }
 
+    pub fn new_capped_cylinder(start: c.vec3, end: c.vec3, r: f32, mat: u32) Self {
+        return Self{
+            .prim = Primitive.new_capped_cylinder(start, end, r),
+            .mat = mat,
+        };
+    }
+
+    pub fn new_cylinder(pos: c.vec3, dir: c.vec3, r: f32) Self {
+        return Self{
+            .prim = Primitive.new_cylinder(pos, dir, r),
+            .mat = mat,
+        };
+    }
+
     pub fn encode(self: Self, buf: *std.ArrayList(c.vec4)) !void {
         try self.prim.encode(buf);
     }

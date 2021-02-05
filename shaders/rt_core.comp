@@ -151,8 +151,7 @@ float hit_sphere(vec3 start, vec3 dir, vec3 center, float r) {
     }
 }
 
-float hit_cylinder(vec3 start, vec3 dir, vec3 cyl_start, vec3 cyl_dir,
-                   float r, float h)
+float hit_cylinder(vec3 start, vec3 dir, vec3 cyl_start, vec3 cyl_dir, float r)
 {
     // https://mrl.cs.nyu.edu/~dzorin/rendering/lectures/lecture3/lecture3.pdf
     vec3 dp = start - cyl_start;

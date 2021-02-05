@@ -2,6 +2,8 @@ const builtin = @import("builtin");
 const std = @import("std");
 
 const c = @import("c.zig");
+const examples = @import("scene/examples.zig");
+
 const Debounce = @import("debounce.zig").Debounce;
 const Options = @import("options.zig").Options;
 const Renderer = @import("renderer.zig").Renderer;
@@ -104,7 +106,7 @@ pub const Window = struct {
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
         _ = c.glfwSetWindowFocusCallback(window, focus_cb);
 
-        const scene = try Scene.new_hex_box(alloc);
+        const scene = try examples.new_hex_box(alloc);
         out.* = .{
             .alloc = alloc,
             .window = window,
@@ -170,28 +172,28 @@ pub const Window = struct {
             if (c.igBeginMenu("Scene", true)) {
                 var new_scene_fn: ?fn (alloc: *std.mem.Allocator) anyerror!Scene = null;
                 if (c.igMenuItemBool("Simple", "", false, true)) {
-                    new_scene_fn = Scene.new_simple_scene;
+                    new_scene_fn = examples.new_simple_scene;
                 }
                 if (c.igMenuItemBool("Cornell Spheres", "", false, true)) {
-                    new_scene_fn = Scene.new_cornell_balls;
+                    new_scene_fn = examples.new_cornell_balls;
                 }
                 if (c.igMenuItemBool("Cornell Box", "", false, true)) {
-                    new_scene_fn = Scene.new_cornell_box;
+                    new_scene_fn = examples.new_cornell_box;
                 }
                 if (c.igMenuItemBool("Ray Tracing in One Weekend", "", false, true)) {
-                    new_scene_fn = Scene.new_rtiow;
+                    new_scene_fn = examples.new_rtiow;
                 }
                 if (c.igMenuItemBool("Prism", "", false, true)) {
-                    new_scene_fn = Scene.new_prism;
+                    new_scene_fn = examples.new_prism;
                 }
                 if (c.igMenuItemBool("THE ORB", "", false, true)) {
-                    new_scene_fn = Scene.new_orb_scene;
+                    new_scene_fn = examples.new_orb_scene;
                 }
                 if (c.igMenuItemBool("Golden spheres", "", false, true)) {
-                    new_scene_fn = Scene.new_hex_box;
+                    new_scene_fn = examples.new_hex_box;
                 }
                 if (c.igMenuItemBool("Chromatic aberration test", "", false, true)) {
-                    new_scene_fn = Scene.new_cornell_aberration;
+                    new_scene_fn = examples.new_cornell_aberration;
                 }
                 if (new_scene_fn) |f| {
                     const options = self.renderer.get_options();

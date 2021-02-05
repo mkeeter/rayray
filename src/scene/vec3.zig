@@ -1,5 +1,5 @@
 const std = @import("std");
-const c = @import("c.zig");
+const c = @import("../c.zig");
 
 pub fn add(a: c.vec3, b: c.vec3) c.vec3 {
     return .{ .x = a.x + b.x, .y = a.y + b.y, .z = a.z + b.z };

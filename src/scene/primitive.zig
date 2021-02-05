@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const c = @import("../c.zig");
-const vec3 = @import("../vec3.zig");
+const vec3 = @import("vec3.zig");
 
 pub const Sphere = struct {
     const Self = @This();

@@ -31,9 +31,9 @@ const Element = enum {
 
     pub fn color(self: Element) c.vec3 {
         return switch (self) {
-            .Oxygen => .{ .x = 0.8, .y = 0.3, .z = 0.3 },
-            .Hydrogen => .{ .x = 0.8, .y = 0.8, .z = 0.8 },
-            .Nitrogen => .{ .x = 0.3, .y = 0.3, .z = 0.8 },
+            .Oxygen => .{ .x = 1, .y = 0.3, .z = 0.3 },
+            .Hydrogen => .{ .x = 1, .y = 1, .z = 1 },
+            .Nitrogen => .{ .x = 0.3, .y = 0.3, .z = 1 },
             .Carbon => .{ .x = 0.6, .y = 0.6, .z = 0.6 },
         };
     }

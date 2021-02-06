@@ -592,6 +592,10 @@ pub fn new_caffeine(alloc: *std.mem.Allocator) !Scene {
     try scene.shapes.append(
         Shape.new_sphere(.{ .x = 3.5, .y = 4.5, .z = 10 }, 5, light),
     );
+    const backdrop = try scene.new_material(Material.new_light(0.79, 0.85, 0.89, 1));
+    try scene.shapes.append(
+        Shape.new_infinite_plane(.{ .x = 0, .y = 0, .z = 1 }, -5, backdrop),
+    );
 
     return scene;
 }

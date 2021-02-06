@@ -106,7 +106,7 @@ pub const Window = struct {
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
         _ = c.glfwSetWindowFocusCallback(window, focus_cb);
 
-        const scene = try examples.new_caffeine(alloc);
+        const scene = try examples.new_riboflavin(alloc);
         out.* = .{
             .alloc = alloc,
             .window = window,

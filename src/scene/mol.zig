@@ -91,12 +91,33 @@ pub fn from_mol(alloc: *std.mem.Allocator, txt: []const u8) !Scene {
         const a = try std.fmt.parseInt(u32, line_iter.next() orelse "", 10);
         const b = try std.fmt.parseInt(u32, line_iter.next() orelse "", 10);
         const n = try std.fmt.parseInt(u32, line_iter.next() orelse "", 10);
-        try scene.shapes.append(Shape.new_capped_cylinder(
-            scene.shapes.items[a - 1].prim.Sphere.center,
-            scene.shapes.items[b - 1].prim.Sphere.center,
-            0.1,
-            bond_mat,
-        ));
+        switch (n) {
+            1 => try scene.shapes.append(Shape.new_capped_cylinder(
+                scene.shapes.items[a - 1].prim.Sphere.center,
+                scene.shapes.items[b - 1].prim.Sphere.center,
+                0.08,
+                bond_mat,
+            )),
+            2 => {
+                const ca = scene.shapes.items[a - 1].prim.Sphere.center;
+                const cb = scene.shapes.items[b - 1].prim.Sphere.center;
+                const d = vec3.sub(cb, ca);
+                const perp = vec3.cross(d, .{ .x = 0, .y = 0, .z = 1 });
+                try scene.shapes.append(Shape.new_capped_cylinder(
+                    vec3.add(ca, vec3.mul(perp, 0.1)),
+                    vec3.add(cb, vec3.mul(perp, 0.1)),
+                    0.06,
+                    bond_mat,
+                ));
+                try scene.shapes.append(Shape.new_capped_cylinder(
+                    vec3.add(ca, vec3.mul(perp, -0.1)),
+                    vec3.add(cb, vec3.mul(perp, -0.1)),
+                    0.06,
+                    bond_mat,
+                ));
+            },
+            else => std.debug.panic("{} bonds not supported\n", .{n}),
+        }
     }
 
     return scene;

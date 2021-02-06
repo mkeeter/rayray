@@ -9,6 +9,10 @@ pub fn sub(a: c.vec3, b: c.vec3) c.vec3 {
     return .{ .x = a.x - b.x, .y = a.y - b.y, .z = a.z - b.z };
 }
 
+pub fn mul(a: c.vec3, b: f32) c.vec3 {
+    return .{ .x = a.x * b, .y = a.y * b, .z = a.z * b };
+}
+
 pub fn length(a: c.vec3) f32 {
     return std.math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
 }

@@ -106,7 +106,7 @@ pub const Window = struct {
         _ = c.glfwSetFramebufferSizeCallback(window, size_cb);
         _ = c.glfwSetWindowFocusCallback(window, focus_cb);
 
-        const scene = try examples.new_riboflavin(alloc);
+        const scene = try examples.new_cornell_box(alloc);
         out.* = .{
             .alloc = alloc,
             .window = window,
@@ -194,6 +194,12 @@ pub const Window = struct {
                 }
                 if (c.igMenuItemBool("Chromatic aberration test", "", false, true)) {
                     new_scene_fn = examples.new_cornell_aberration;
+                }
+                if (c.igMenuItemBool("Caffeine", "", false, true)) {
+                    new_scene_fn = examples.new_caffeine;
+                }
+                if (c.igMenuItemBool("Riboflavin", "", false, true)) {
+                    new_scene_fn = examples.new_riboflavin;
                 }
                 if (new_scene_fn) |f| {
                     const options = self.renderer.get_options();

@@ -27,6 +27,20 @@ A tiny GPU raytracer!
 - Vaguely based on [_Ray Tracing in One Weekend_](https://raytracing.github.io/books/RayTracingInOneWeekend.html),
   with a data-driven design to run on the GPU.
 
+## Project status
+![Project unsupported](https://img.shields.io/badge/project-unsupported-red.svg)
+
+This is a personal / toy project,
+and I don't plan to support it on anything other than my laptop
+(macOS 10.13, Zig 0.7.1, and `wgpu-native` built from source).
+
+I'm unlikely to fix any issues,
+although I will optimistically merge small-to-medium PRs that fix bugs
+or add support for more platforms.
+
+If you'd like to add major features, please fork the project;
+I'd be happy to link to any forks which achieve critical momemtum!
+
 ## License
 Licensed under either of
 

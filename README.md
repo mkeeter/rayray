@@ -1,6 +1,8 @@
 # rayray
 A tiny GPU raytracer!
 
+(more details on the [project homepage](https://www.mattkeeter.com/projects/rayray))
+
 ![Cornell Box](https://www.mattkeeter.com/projects/rayray/renders/cornell@2x.png)
 
 ![Ray tracing in one weekend](https://www.mattkeeter.com/projects/rayray/renders/rtiow@2x.png)

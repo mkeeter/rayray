@@ -3,11 +3,11 @@ const std = @import("std");
 const c = @import("../c.zig");
 
 fn tag_array_type(comptime T: type) type {
-    return [std.meta.fields(@TagType(T)).len][]u8;
+    return [std.meta.fields(std.meta.Tag(T)).len][]u8;
 }
 
 fn tag_array(comptime T: type) tag_array_type(T) {
-    comptime const tags = std.meta.fields(@TagType(T));
+    comptime const tags = std.meta.fields(std.meta.Tag(T));
     comptime var total_len: usize = 0;
     inline for (tags) |t| {
         total_len += t.name.len + 1;
@@ -30,25 +30,25 @@ fn tag_array(comptime T: type) tag_array_type(T) {
     return out_array;
 }
 
-pub fn draw_enum_combo(comptime T: type, self: T) ?@TagType(T) {
+pub fn draw_enum_combo(comptime T: type, self: T) ?std.meta.Tag(T) {
     var changed = false;
     const tags = tag_array(T);
 
     // Copy the slice to a null-terminated string for C API
     const my_name = tags[@enumToInt(self)];
 
-    var out: ?@TagType(T) = null;
+    var out: ?std.meta.Tag(T) = null;
 
     if (c.igBeginCombo("", @ptrCast([*c]const u8, my_name[0..]), 0)) {
         var i: usize = 0;
-        const TagIntType = @typeInfo(@TagType(T)).Enum.tag_type;
+        const TagIntType = @typeInfo(std.meta.Tag(T)).Enum.tag_type;
         while (i < tags.len) : (i += 1) {
             const is_selected = i == @enumToInt(self);
 
             const t = @ptrCast([*c]const u8, tags[i]);
             if (c.igSelectableBool(t, is_selected, 0, .{ .x = 0, .y = 0 })) {
                 if (i != @enumToInt(self)) {
-                    out = @intToEnum(@TagType(T), @intCast(TagIntType, i));
+                    out = @intToEnum(std.meta.Tag(T), @intCast(TagIntType, i));
                 }
             }
             if (is_selected) {

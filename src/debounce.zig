@@ -11,14 +11,14 @@ pub const Debounce = struct {
     thread: ?*std.Thread,
 
     // The mutex protects all of the variables below
-    mutex: std.Mutex,
+    mutex: std.Thread.Mutex,
     end_time_ms: i64,
     thread_running: bool,
     done: bool,
 
     pub fn init() Self {
         return Self{
-            .mutex = std.Mutex{},
+            .mutex = std.Thread.Mutex{},
 
             .end_time_ms = 0,
             .thread = null,

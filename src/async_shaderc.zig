@@ -9,7 +9,7 @@ pub const AsyncShaderc = struct {
 
     alloc: *std.mem.Allocator,
 
-    mutex: std.Mutex,
+    mutex: std.Thread.Mutex,
     thread: *std.Thread,
     cancelled: bool,
 
@@ -21,7 +21,7 @@ pub const AsyncShaderc = struct {
         return Self{
             .alloc = scene.alloc,
 
-            .mutex = std.Mutex{},
+            .mutex = std.Thread.Mutex{},
             .thread = undefined, // defined in start()
 
             .scene = scene,

@@ -1,15 +1,17 @@
 all:
-	@echo "Usage: make [wgpu|shaderc]"
+	@echo "Usage: make [wgpu|shaderc|imgui]"
 
-.PHONY: wgpu shaderc nvim
+.PHONY: wgpu shaderc imgui
 
 WGPU=wgpu-macos-64-release.zip
 wgpu:
-	echo "Build it yourself, good luck!"
-	#wget https://github.com/gfx-rs/wgpu-native/releases/download/v0.6.0/${WGPU}
-	#unzip -dwgpu ${WGPU}
-	#rm ${WGPU}
-	#cd wgpu && install_name_tool -id "@executable_path/../../vendor/wgpu/libwgpu_native.dylib" libwgpu_native.dylib
+	@echo "Building wgpu-native (untested, good luck!)"
+	git clone https://github.com/gfx-rs/wgpu-native/
+	cd wgpu-native && git checkout 3317a65 && cargo build --release
+	mkdir -p wgpu
+	cp wgpu-native/target/release/libwgpu_native.dylib wgpu
+	cp wgpu-native/ffi/wgpu.h wgpu
+	cd wgpu && install_name_tool -id "@executable_path/../../vendor/wgpu/libwgpu_native.dylib" libwgpu_native.dylib
 
 SHADERC=install.tgz
 shaderc:

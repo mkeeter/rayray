@@ -34,7 +34,8 @@ A tiny GPU raytracer!
 
 This is a personal / toy project,
 and I don't plan to support it on anything other than my laptop
-(macOS 10.13, Zig 0.7.1, and `wgpu-native` built from source).
+(macOS 10.13, `zig-macos-x86_64-0.8.0-dev.1125`,
+and `wgpu-native` built from source).
 
 I'm unlikely to fix any issues,
 although I will optimistically merge small-to-medium PRs that fix bugs

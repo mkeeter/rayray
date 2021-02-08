@@ -40,6 +40,10 @@ I'm unlikely to fix any issues,
 although I will optimistically merge small-to-medium PRs that fix bugs
 or add support for more platforms.
 
+That being said, I'm generally friendly,
+so feel free to open issues and ask questions;
+just don't set your expectations too high!
+
 If you'd like to add major features, please fork the project;
 I'd be happy to link to any forks which achieve critical momemtum!
 
